@@ -1,11 +1,14 @@
 $outputFile = "dataOutputWithMeasurement.csv"
 $measurement = "pcm_data"
-$durationSeconds = 5 # Set the run duration to 5 seconds
+$durationSeconds = 120 # Set the run duration to 5 seconds
 $startTime = Get-Date
 
 # Create the file with headers if it doesn't exist
 if (!(Test-Path $outputFile)) {
-    "Measurement,Timestamp,Counter,Value" | Out-File -FilePath $outputFile -Encoding utf8
+    @"
+#datatype measurement,dateTime:2006-01-02 15:04:05,tag,double
+pcm_data,time,metric,value
+"@ | Out-File -FilePath $outputFile -Encoding utf8
 }
 
 # Get the list of PCM counter paths
