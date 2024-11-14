@@ -1,3 +1,3 @@
 # CPUEnergyEstimation
 Research Project for CSEN 283
-[Images/Power.png]
+![power](Images/Power.png)
