@@ -19,23 +19,30 @@ windows ='Data/newWindows.csv'
 linux_data = pandas.read_csv(linux, skiprows=1)
 windows_data = pandas.read_csv(windows, skiprows=1)
 
-print(linux_data)
-print(windows_data)
-
 linux_data['DateTime'] = pandas.to_datetime(linux_data['DateTime'])
 windows_data['DateTime'] = pandas.to_datetime(windows_data['DateTime'])
+
+# Normalize DateTime columns to start from the same point
+min_datetime = min(linux_data['DateTime'].min(), windows_data['DateTime'].min())
+linux_data['NormalizedDateTime'] = linux_data['DateTime'] - linux_data['DateTime'].min()
+windows_data['NormalizedDateTime'] = windows_data['DateTime'] - windows_data['DateTime'].min()
+
+# Shift the DateTime values so that both datasets start at the same time
+linux_data['ShiftedDateTime'] = linux_data['NormalizedDateTime'] + min_datetime
+windows_data['ShiftedDateTime'] = windows_data['NormalizedDateTime'] + min_datetime
+
 
 # Plot data
 plt.figure(figsize=(10, 5))
 
 # Plot Linux energy usage
-plt.plot(linux_data['DateTime'], linux_data['Proc Energy (Joules)'], label='Linux Energy Usage')
+plt.plot(linux_data['ShiftedDateTime'], linux_data['Proc Energy (Joules)'], label='Linux Energy Usage')
 
 # Plot Windows energy usage
-plt.plot(windows_data['DateTime'], windows_data['Proc Energy (Joules)'], label='Windows Energy Usage')
+plt.plot(windows_data['ShiftedDateTime'], windows_data['Proc Energy (Joules)'], label='Windows Energy Usage')
 
 # Add labels and title
-plt.xlabel('DateTime')
+plt.xlabel('Normalized DateTime')
 plt.ylabel('Energy Usage (Joules)')
 plt.title('Energy Usage over Time')
 plt.legend()
