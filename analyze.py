@@ -15,12 +15,26 @@ windows_data = pd.read_csv(windows, skiprows=1)
 linux_data['DateTime'] = pd.to_datetime(linux_data['DateTime'])
 windows_data['DateTime'] = pd.to_datetime(windows_data['DateTime'])
 
-# Normalize and align DateTime
-min_datetime = min(linux_data['DateTime'].min(), windows_data['DateTime'].min())
-linux_data['NormalizedDateTime'] = linux_data['DateTime'] - linux_data['DateTime'].min()
-windows_data['NormalizedDateTime'] = windows_data['DateTime'] - windows_data['DateTime'].min()
-linux_data['ShiftedDateTime'] = linux_data['NormalizedDateTime'] + min_datetime
-windows_data['ShiftedDateTime'] = windows_data['NormalizedDateTime'] + min_datetime
+# Calculate the total duration of recording for Linux and Windows
+linux_duration = (linux_data['DateTime'].max() - linux_data['DateTime'].min()).total_seconds()
+windows_duration = (windows_data['DateTime'].max() - windows_data['DateTime'].min()).total_seconds()
+
+# Print the total durations
+print(f"Linux Total Duration (seconds): {linux_duration}")
+print(f"Windows Total Duration (seconds): {windows_duration}")
+
+# Calculate the difference in duration between Linux and Windows recordings
+duration_difference = abs(linux_duration - windows_duration)
+print(f"Difference in Recording Durations (seconds): {duration_difference}")
+
+# Compare the durations to the expected 3 minutes
+expected_duration = 3 * 60  # 3 minutes in seconds
+linux_difference_from_expected = linux_duration - expected_duration
+windows_difference_from_expected = windows_duration - expected_duration
+
+# Print the deviations from the expected duration
+print(f"Linux Deviation from Expected Duration (seconds): {linux_difference_from_expected}")
+print(f"Windows Deviation from Expected Duration (seconds): {windows_difference_from_expected}")
 
 # Columns of interest
 linux_columns_of_interest = [
@@ -78,7 +92,6 @@ windows_resampled = windows_numeric.set_index('DateTime').resample('25ms').mean(
 print(f"Linux Resampled Rows: {len(linux_resampled)}")
 print(f"Windows Resampled Rows: {len(windows_resampled)}")
 
-
 # Check for missing timestamps in Linux
 linux_missing = pd.date_range(start=linux_data['DateTime'].min(), end=linux_data['DateTime'].max(), freq='25ms').difference(linux_data['DateTime'])
 print(f"Missing Timestamps in Linux: {len(linux_missing)}")
@@ -110,13 +123,13 @@ print(windows_corr['Proc Energy (Joules)'].sort_values(ascending=False))
 # Scatterplots for key variables vs energy
 plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)
-plt.scatter(linux_data_filtered['FREQ'], linux_data_filtered['Proc Energy (Joules)'])
+plt.scatter(linux_data_filtered['FREQ'], linux_data_filtered['Proc Energy (Joules)'], alpha=0.6)
 plt.xlabel('Frequency (FREQ)')
 plt.ylabel('Processor Energy (Joules)')
 plt.title('Linux: Frequency vs Energy')
 
 plt.subplot(1, 2, 2)
-plt.scatter(windows_data_filtered['FREQ'], windows_data_filtered['Proc Energy (Joules)'])
+plt.scatter(windows_data_filtered['FREQ'], windows_data_filtered['Proc Energy (Joules)'], alpha=0.6)
 plt.xlabel('Frequency (FREQ)')
 plt.ylabel('Processor Energy (Joules)')
 plt.title('Windows: Frequency vs Energy')
