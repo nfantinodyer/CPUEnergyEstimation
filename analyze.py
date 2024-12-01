@@ -9,8 +9,8 @@ from sklearn.pipeline import make_pipeline
 import numpy as np
 
 # Data sources
-linux = 'Data/newLinux.csv'
-windows = 'Data/newWindows.csv'
+linux = 'Data/Linux/newLinux.csv'
+windows = 'Data/Windows/newWindows.csv'
 
 # Load data
 linuxData = pd.read_csv(linux, skiprows=1)
