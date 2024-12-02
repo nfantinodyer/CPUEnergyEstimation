@@ -1,17 +1,11 @@
 #!/bin/bash
 
 # run.sh
-# Usage: sudo ./run.sh
-
-# Ensure the script is run with sudo
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root using sudo."
-  exit
-fi
+# Usage: ./run.sh
 
 # Directories
-PCM_DIR="Desktop/pcm/build/bin"
-OUTPUT_DIR="Desktop/Data"
+PCM_DIR="/home/yourusername/Desktop/pcm/build/bin"
+OUTPUT_DIR="/home/yourusername/Desktop/Data"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -84,21 +78,17 @@ run_test() {
 
   temp_pid=$!
 
-  # Start pcm data collection in the background using 'setsid' to detach from terminal
-  setsid sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2>"$pcm_error_log" &
+  # Start pcm data collection in a new terminal window
+  gnome-terminal -- bash -c "sudo '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2>'$pcm_error_log'"
 
-  pcm_pid=$!
-
-  # Start stress-ng in the background
-  setsid $stress_cmd &
-
-  stress_pid=$!
+  # Start stress-ng in the current terminal
+  eval "$stress_cmd"
 
   # Wait for the duration of the test
   sleep "$PCM_DURATION"
 
   # Optionally, kill any remaining processes
-  kill $temp_pid $pcm_pid $stress_pid 2>/dev/null
+  kill $temp_pid 2>/dev/null
 
   echo "Completed test: Threads=$num_threads, Load=$load_percent%"
 }
