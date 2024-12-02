@@ -4,8 +4,8 @@
 # Usage: ./run.sh
 
 # Directories
-PCM_DIR="/home/yourusername/Desktop/pcm/build/bin"
-OUTPUT_DIR="/home/yourusername/Desktop/Data"
+PCM_DIR="Desktop/pcm/build/bin"
+OUTPUT_DIR="Desktop/Data"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
