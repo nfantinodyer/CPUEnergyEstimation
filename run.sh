@@ -79,17 +79,17 @@ run_test() {
   # Wait a moment to ensure stress-ng has started
   sleep 2
 
-  # Start pcm data collection in a new xterm window
+  # Start pcm data collection in a new xterm window with unbuffered output
   xterm -hold -e bash -c "
     echo 'Starting pcm data collection...';
-    sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2> "$pcm_error_log";
+    stdbuf -oL sudo \"$PCM_DIR/pcm\" /csv \"$PCM_SAMPLING_INTERVAL\" \"$PCM_COUNT\" > \"$pcm_output_file\" 2> \"$pcm_error_log\";
     echo 'pcm data collection completed.';
     read -p 'Press Enter to close...';
   " &
   pcm_pid=$!
 
   # Wait for PCM_DURATION to allow pcm data collection to complete
-  sleep "$PCM_DURATION"
+  sleep \"$PCM_DURATION\"
 
   # Start temperature logging in a new xterm window
   xterm -hold -e bash -c "
@@ -113,7 +113,7 @@ run_test() {
   temp_pid=$!
 
   # Wait for PCM_DURATION to allow temperature logging to complete
-  sleep "$PCM_DURATION"
+  sleep \"$PCM_DURATION\"
 
   # Wait for stress-ng to complete if it hasn't already
   wait $stress_pid
