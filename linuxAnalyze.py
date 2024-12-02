@@ -7,7 +7,6 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
-# Define base directory
 base_dir = 'Data/NewData/Linux/StressNGData/CPUEnergyEstimation/Data/Linux/StressNGData/Static'
 
 # Define directories for each thread count
@@ -25,9 +24,9 @@ word_to_num = {
     'Six': 6
 }
 
-# Define load percentages
-all_loads = list(range(10, 100, 10))  # 10% to 90% in increments of 10%
-partial_loads = [30, 60, 90]  # For 2, 4, 6 threads
+# Define load percentages including the new 0% load
+all_loads = [0] + list(range(10, 100, 10))  # 0% to 90% in increments of 10%
+partial_loads = [0, 30, 60, 90]  # For 2, 4, 6 threads including 0%
 
 # Function to create file paths
 def create_file_paths(directory, loads, suffix):
@@ -126,7 +125,9 @@ all_data_filtered['NumThreads'] = pd.to_numeric(all_data_filtered['NumThreads'],
 # Replace 'All' with the maximum number of threads observed
 if all_data_filtered['NumThreads'].isnull().any():
     # Set the maximum number of threads (adjust as per your system)
-    max_threads = 8  # Replace with your actual maximum number of threads
+    max_threads = all_data_filtered['NumThreads'].max(skipna=True)
+    if pd.isnull(max_threads):
+        max_threads = 8  # Replace with your actual maximum number of threads
     all_data_filtered['NumThreads'] = all_data_filtered['NumThreads'].fillna(max_threads)
 else:
     max_threads = int(all_data_filtered['NumThreads'].max())
@@ -151,7 +152,7 @@ else:
 print("First few rows of all_data_filtered:")
 print(all_data_filtered.head())
 
-# --- New Section: Investigate Energy Usage Drop at Higher Loads ---
+# --- Update Analysis with Baseline Data ---
 
 # Filter data for 'All Threads' only
 all_threads_data = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'All Threads'].copy()
@@ -159,7 +160,7 @@ all_threads_data = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'Al
 # Compute average processor energy consumption for 'All Threads'
 avg_energy_all_threads = all_threads_data.groupby('LoadPercent')['Proc Energy (Joules)'].mean().reset_index()
 
-# Plotting average energy consumption for 'All Threads'
+# Plotting average energy consumption for 'All Threads' including baseline
 plt.figure(figsize=(10, 6))
 sns.lineplot(
     data=avg_energy_all_threads,
@@ -189,7 +190,7 @@ for metric in metrics_to_plot:
         x='LoadPercent',
         y=metric,
         estimator='mean',
-        errorbar=None,  # Updated parameter
+        errorbar=None,
         marker='o'
     )
     plt.title(f'Average {metric} (All Threads)')
@@ -223,9 +224,9 @@ print("Energy Consumption at High Loads (All Threads):")
 print(high_load_data[['LoadPercent', 'Proc Energy (Joules)']].describe())
 
 # Check for negative or zero energy values
-negative_energy = high_load_data[high_load_data['Proc Energy (Joules)'] <= 0]
+negative_energy = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] <= 0]
 if not negative_energy.empty:
-    print("Found negative or zero energy values at high loads:")
+    print("Found negative or zero energy values:")
     print(negative_energy[['DateTime', 'LoadPercent', 'Proc Energy (Joules)']])
 
 # --- Data Cleaning ---
@@ -323,4 +324,4 @@ plt.show()
 
 # --- Conclusion ---
 
-print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior at higher loads.")
+print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the new baseline data.")
