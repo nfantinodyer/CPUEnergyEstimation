@@ -1,5 +1,3 @@
-# Full updated code with modifications to include the source file name
-
 import os
 import re
 import pandas as pd
@@ -120,7 +118,12 @@ def getMatchingColumns(columnsList, dataColumns):
     for col in columnsList:
         matches = [c for c in dataColumns if c.startswith(col)]
         if matches:
-            matchingColumns[col] = matches[0]
+            # For 'TEMP', pick the exact match or the first match
+            if col == 'TEMP':
+                temp_matches = [c for c in matches if c == 'TEMP']
+                matchingColumns[col] = temp_matches[0] if temp_matches else matches[0]
+            else:
+                matchingColumns[col] = matches[0]
         else:
             print(f"Column '{col}' not found in data.")
     return matchingColumns
@@ -162,26 +165,31 @@ else:
 print("First few rows of all_data_filtered:")
 print(all_data_filtered.head())
 
-# --- Identify Zero or Negative Energy Values with Source Files ---
+# --- Identify Zero or Missing Temperature Values with Source Files ---
 
-# Find entries with zero or negative energy values
-zero_energy_entries = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] <= 0]
+# Replace missing or non-numeric TEMP values with NaN
+all_data_filtered['TEMP'] = pd.to_numeric(all_data_filtered['TEMP'], errors='coerce')
 
-# Check if any zero energy entries are found
-if not zero_energy_entries.empty:
-    print("Entries with zero or negative energy values and their source files:")
-    print(zero_energy_entries[['DateTime', 'LoadPercent', 'NumThreads', 'NumThreadsLabel', 'SourceFile', 'Proc Energy (Joules)']])
+# Find entries with zero or missing temperature values
+zero_temp_entries = all_data_filtered[(all_data_filtered['TEMP'].isna()) | (all_data_filtered['TEMP'] == 0)]
+
+# Check if any zero or missing temperature entries are found
+if not zero_temp_entries.empty:
+    print("Entries with zero or missing temperature values and their source files:")
+    print(zero_temp_entries[['DateTime', 'LoadPercent', 'NumThreads', 'NumThreadsLabel', 'SourceFile', 'TEMP']])
 else:
-    print("No zero or negative energy values found.")
+    print("No zero or missing temperature values found.")
 
 # --- Continue with Analysis ---
 
-# Remove negative or zero energy values
-all_data_filtered = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] > 0]
+# Optionally, remove entries with zero or missing temperature values if needed
+# all_data_filtered = all_data_filtered[~((all_data_filtered['TEMP'].isna()) | (all_data_filtered['TEMP'] == 0))]
 
 # --- Update Analysis with Baseline Data ---
 
-# Filter data for 'All Threads' only
+# Proceed with your analysis as before...
+
+# For example, filter data for 'All Threads' only
 all_threads_data = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'All Threads'].copy()
 
 # Check if 'all_threads_data' is not empty
@@ -210,7 +218,7 @@ else:
     print(avg_energy_all_threads)
     
     # --- Investigate Anomalies ---
-    
+
     # Plot additional metrics to check for anomalies
     metrics_to_plot = ['FREQ', 'TEMP', 'CPU Utilization']
     
@@ -246,16 +254,16 @@ else:
     plt.show()
     
     # --- Data Diagnostics ---
-    
+
     # Identify potential data issues at higher loads
-    high_load_data = all_threads_data[all_threads_data['LoadPercent'] >= 50]
+    high_load_data = all_threads_data[all_threads_data['LoadPercent'] >= 70]
     
-    # Check for unusual values in energy consumption
-    print("Energy Consumption at High Loads (All Threads):")
-    print(high_load_data[['LoadPercent', 'Proc Energy (Joules)']].describe())
+    # Check for unusual values in temperature
+    print("Temperature Data at High Loads (All Threads):")
+    print(high_load_data[['LoadPercent', 'TEMP']].describe())
     
     # --- Update Regression Analysis ---
-    
+
     # Prepare data for regression
     regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']].dropna()
     
@@ -294,7 +302,7 @@ else:
     plt.show()
     
     # --- Additional Visualizations ---
-    
+
     # Plot energy consumption vs. CPU Utilization
     plt.figure(figsize=(10, 6))
     sns.scatterplot(
@@ -326,5 +334,6 @@ else:
     plt.show()
     
     # --- Conclusion ---
-    
-    print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the new baseline data.")
+
+    print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the temperature data.")
+
