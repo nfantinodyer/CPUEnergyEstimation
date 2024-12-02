@@ -26,7 +26,7 @@ word_to_num = {
 }
 
 # Define load percentages including the new 0% load
-all_loads = [0] + list(range(10, 100, 10))  # 0% to 90% in increments of 10%
+all_loads = [0] + list(range(0, 100, 10))  # 0% to 90% in increments of 10%
 partial_loads = [0, 30, 60, 90]  # For 2, 4, 6 threads including 0%
 
 # Function to create file paths
