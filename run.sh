@@ -6,7 +6,7 @@
 
 # Directories
 PCM_DIR="/Desktop/pcm/build/bin"
-OUTPUT_DIR="$HOME/Desktop"
+OUTPUT_DIR="~/Desktop"
 
 # Ensure the msr module is loaded
 sudo modprobe msr
