@@ -112,5 +112,3 @@ for exp in "${experiments[@]}"; do
     # Optional: Add a short delay between experiments
     sleep 10
 done
-
-echo "All experiments completed."
