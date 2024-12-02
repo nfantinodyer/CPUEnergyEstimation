@@ -52,27 +52,44 @@ run_test() {
   # Remove existing files if they exist
   rm -f "$pcm_output_file" "$temp_output_file"
 
-  # Calculate sampling interval and count for pcm
+  # Define durations
   PCM_SAMPLING_INTERVAL="1"  # Adjust as needed
   PCM_DURATION="60"  # seconds
-  PCM_COUNT="60"
+  PCM_COUNT="$PCM_DURATION"
+  STRESS_DURATION=$(($PCM_DURATION * 2))  # 120 seconds
 
   # Build stress-ng command
   if [ "$num_threads" -eq 8 ]; then
     # All threads
-    stress_cmd="stress-ng --cpu 0 --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
+    stress_cmd="stress-ng --cpu 0 --cpu-method matrixprod --cpu-load $load_percent --timeout ${STRESS_DURATION}s"
   else
     # Specific number of threads
-    stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
+    stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${STRESS_DURATION}s"
   fi
 
-  # Start pcm data collection
+  # Start stress-ng in a new xterm window
+  xterm -hold -e bash -c "
+    echo 'Starting stress-ng...';
+    sudo $stress_cmd;
+    echo 'stress-ng completed.';
+    read -p 'Press Enter to close...';
+  " &
+  stress_pid=$!
+
+  # Wait a moment to ensure stress-ng has started
+  sleep 2
+
+  # Start pcm data collection in a new xterm window
   xterm -hold -e bash -c "
     echo 'Starting pcm data collection...';
     sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2> "$pcm_error_log";
     echo 'pcm data collection completed.';
-  "&
+    read -p 'Press Enter to close...';
+  " &
   pcm_pid=$!
+
+  # Wait for PCM_DURATION to allow pcm data collection to complete
+  sleep "$PCM_DURATION"
 
   # Start temperature logging in a new xterm window
   xterm -hold -e bash -c "
@@ -93,24 +110,13 @@ run_test() {
     echo 'Temperature logging completed.';
     read -p 'Press Enter to close...';
   " &
-
   temp_pid=$!
 
+  # Wait for PCM_DURATION to allow temperature logging to complete
+  sleep "$PCM_DURATION"
 
-  # Start stress-ng in a new xterm window
-  xterm -hold -e bash -c "
-    echo 'Starting stress-ng...';
-    sudo $stress_cmd;
-    echo 'stress-ng completed.';
-    read -p 'Press Enter to close...';
-  " &
-
-  stress_pid=$!
-
-
-
-  # Wait for the duration of the test plus a buffer
-  sleep $(($PCM_DURATION + 5))
+  # Wait for stress-ng to complete if it hasn't already
+  wait $stress_pid
 
   echo "Completed test: Threads=$num_threads, Load=$load_percent%"
 }
