@@ -1,3 +1,5 @@
+# Full updated code with modifications to include the source file name
+
 import os
 import re
 import pandas as pd
@@ -7,6 +9,7 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
+# Define base directory (adjust this path as needed)
 base_dir = 'Data/NewData/Linux/StressNGData/CPUEnergyEstimation/Data/Linux/StressNGData/Static'
 
 # Define directories for each thread count
@@ -37,6 +40,7 @@ def load_data(files, num_threads):
     data_frames = []
     for file_path in files:
         if os.path.exists(file_path):
+            print(f"Loading file: {file_path}")
             # Read CSV, skipping the first line (#datatype)
             df = pd.read_csv(file_path, skiprows=1)
             # Convert 'DateTime' column
@@ -51,11 +55,24 @@ def load_data(files, num_threads):
             # Add metadata columns
             df['LoadPercent'] = load_percent
             df['NumThreads'] = num_threads
+            df['SourceFile'] = filename  # Include the source file name
             
             data_frames.append(df)
         else:
             print(f"File not found: {file_path}")
     return data_frames
+
+# Determine the actual maximum number of threads
+# For the purpose of this code, let's assume it's 8
+max_threads = 8  # Adjust this number to match your system's maximum threads
+
+# Adjust the mapping
+num_threads_labels = {
+    max_threads: 'All Threads',
+    2: '2 Threads',
+    4: '4 Threads',
+    6: '6 Threads'
+}
 
 # Initialize data frames list
 data_frames = []
@@ -64,7 +81,7 @@ data_frames = []
 for label, dir_path in directories.items():
     if 'All' in label:
         files = create_file_paths(dir_path, all_loads, 'Static')
-        num_threads = 'All'
+        num_threads = max_threads  # Set num_threads to the actual max threads
     else:
         thread_word = label.split()[0]  # e.g., 'Two', 'Four', 'Six'
         threads_num = word_to_num.get(thread_word, None)
@@ -78,13 +95,21 @@ for label, dir_path in directories.items():
 # Combine all data
 all_data = pd.concat(data_frames, ignore_index=True)
 
+# Convert 'NumThreads' to numeric (should already be numeric)
+all_data['NumThreads'] = pd.to_numeric(all_data['NumThreads'], errors='coerce')
+all_data.dropna(subset=['NumThreads'], inplace=True)
+
+# Print unique values of NumThreads
+print("Unique NumThreads values in all_data:")
+print(all_data['NumThreads'].unique())
+
 # Print columns in all_data
 print("Columns in all_data:")
 print(all_data.columns.tolist())
 
 # Define columns of interest
 columnsOfInterest = [
-    'DateTime', 'LoadPercent', 'NumThreads',
+    'DateTime', 'LoadPercent', 'NumThreads', 'SourceFile',
     'Proc Energy (Joules)', 'CPU Utilization', 'FREQ', 'AFREQ', 'TEMP', 'C0res%', 'C1res%', 'C3res%',
     'C6res%', 'C7res%', 'READ', 'WRITE'
 ]
@@ -117,29 +142,14 @@ print(all_data_filtered.columns.tolist())
 
 # Data cleaning
 all_data_filtered['LoadPercent'] = pd.to_numeric(all_data_filtered['LoadPercent'], errors='coerce')
-
-# Handle 'All' threads
-all_data_filtered['NumThreads'] = all_data_filtered['NumThreads'].replace({'All': None})
 all_data_filtered['NumThreads'] = pd.to_numeric(all_data_filtered['NumThreads'], errors='coerce')
 
-# Replace 'All' with the maximum number of threads observed
-if all_data_filtered['NumThreads'].isnull().any():
-    # Set the maximum number of threads (adjust as per your system)
-    max_threads = all_data_filtered['NumThreads'].max(skipna=True)
-    if pd.isnull(max_threads):
-        max_threads = 8  # Replace with your actual maximum number of threads
-    all_data_filtered['NumThreads'] = all_data_filtered['NumThreads'].fillna(max_threads)
-else:
-    max_threads = int(all_data_filtered['NumThreads'].max())
-
 # Map 'NumThreads' to labels
-num_threads_labels = {
-    max_threads: 'All Threads',
-    2: '2 Threads',
-    4: '4 Threads',
-    6: '6 Threads'
-}
 all_data_filtered['NumThreadsLabel'] = all_data_filtered['NumThreads'].map(num_threads_labels)
+
+# Print unique NumThreadsLabel values
+print("Unique NumThreadsLabel values in all_data_filtered:")
+print(all_data_filtered['NumThreadsLabel'].unique())
 
 # Check for 'CPU Utilization'
 if 'CPU Utilization' not in all_data_filtered.columns and 'C0res%' in all_data_filtered.columns:
@@ -152,176 +162,169 @@ else:
 print("First few rows of all_data_filtered:")
 print(all_data_filtered.head())
 
+# --- Identify Zero or Negative Energy Values with Source Files ---
+
+# Find entries with zero or negative energy values
+zero_energy_entries = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] <= 0]
+
+# Check if any zero energy entries are found
+if not zero_energy_entries.empty:
+    print("Entries with zero or negative energy values and their source files:")
+    print(zero_energy_entries[['DateTime', 'LoadPercent', 'NumThreads', 'NumThreadsLabel', 'SourceFile', 'Proc Energy (Joules)']])
+else:
+    print("No zero or negative energy values found.")
+
+# --- Continue with Analysis ---
+
+# Remove negative or zero energy values
+all_data_filtered = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] > 0]
+
 # --- Update Analysis with Baseline Data ---
 
 # Filter data for 'All Threads' only
 all_threads_data = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'All Threads'].copy()
 
-# Compute average processor energy consumption for 'All Threads'
-avg_energy_all_threads = all_threads_data.groupby('LoadPercent')['Proc Energy (Joules)'].mean().reset_index()
-
-# Plotting average energy consumption for 'All Threads' including baseline
-plt.figure(figsize=(10, 6))
-sns.lineplot(
-    data=avg_energy_all_threads,
-    x='LoadPercent',
-    y='Proc Energy (Joules)',
-    marker='o'
-)
-plt.title('Average Processor Energy Consumption (All Threads)')
-plt.xlabel('Load Percentage (%)')
-plt.ylabel('Average Energy (Joules)')
-plt.grid(True)
-plt.show()
-
-# Print the average energy values
-print("Average Energy Consumption for All Threads:")
-print(avg_energy_all_threads)
-
-# --- Investigate Anomalies ---
-
-# Plot additional metrics to check for anomalies
-metrics_to_plot = ['FREQ', 'TEMP', 'CPU Utilization']
-
-for metric in metrics_to_plot:
+# Check if 'all_threads_data' is not empty
+if all_threads_data.empty:
+    print("No data found for 'All Threads'")
+else:
+    # Compute average processor energy consumption for 'All Threads'
+    avg_energy_all_threads = all_threads_data.groupby('LoadPercent')['Proc Energy (Joules)'].mean().reset_index()
+    
+    # Plotting average energy consumption for 'All Threads' including baseline
     plt.figure(figsize=(10, 6))
     sns.lineplot(
-        data=all_threads_data,
+        data=avg_energy_all_threads,
         x='LoadPercent',
-        y=metric,
-        estimator='mean',
-        errorbar=None,
+        y='Proc Energy (Joules)',
         marker='o'
     )
-    plt.title(f'Average {metric} (All Threads)')
+    plt.title('Average Processor Energy Consumption (All Threads)')
     plt.xlabel('Load Percentage (%)')
-    plt.ylabel(f'Average {metric}')
+    plt.ylabel('Average Energy (Joules)')
     plt.grid(True)
     plt.show()
-
-# Check for thermal throttling by plotting CPU frequency and temperature
-plt.figure(figsize=(10, 6))
-sc = plt.scatter(
-    x=all_threads_data['TEMP'],
-    y=all_threads_data['FREQ'],
-    c=all_threads_data['LoadPercent'],
-    cmap='viridis'
-)
-plt.title('CPU Frequency vs. Temperature (All Threads)')
-plt.xlabel('Temperature (°C)')
-plt.ylabel('Frequency (GHz)')
-plt.colorbar(sc, label='Load Percentage (%)')
-plt.grid(True)
-plt.show()
-
-# --- Data Diagnostics ---
-
-# Identify potential data issues at higher loads
-high_load_data = all_threads_data[all_threads_data['LoadPercent'] >= 50]
-
-# Check for unusual values in energy consumption
-print("Energy Consumption at High Loads (All Threads):")
-print(high_load_data[['LoadPercent', 'Proc Energy (Joules)']].describe())
-
-# Check for negative or zero energy values
-negative_energy = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] <= 0]
-if not negative_energy.empty:
-    print("Found negative or zero energy values:")
-    print(negative_energy[['DateTime', 'LoadPercent', 'Proc Energy (Joules)']])
-
-# --- Data Cleaning ---
-
-# Remove negative or zero energy values
-all_data_filtered = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] > 0]
-
-# Recompute average energy consumption after cleaning
-avg_energy_all_threads = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'All Threads'].groupby('LoadPercent')['Proc Energy (Joules)'].mean().reset_index()
-
-# Re-plot average energy consumption after cleaning
-plt.figure(figsize=(10, 6))
-sns.lineplot(
-    data=avg_energy_all_threads,
-    x='LoadPercent',
-    y='Proc Energy (Joules)',
-    marker='o'
-)
-plt.title('Average Processor Energy Consumption after Cleaning (All Threads)')
-plt.xlabel('Load Percentage (%)')
-plt.ylabel('Average Energy (Joules)')
-plt.grid(True)
-plt.show()
-
-# --- Update Regression Analysis ---
-
-# Prepare data for regression
-regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']].dropna()
-
-# Define features and target variable
-X = regression_data[['LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']]
-y = regression_data['Proc Energy (Joules)']
-
-# Fit linear regression model
-model = LinearRegression()
-model.fit(X, y)
-
-# Make predictions
-y_pred = model.predict(X)
-
-# Calculate performance metrics
-mse = mean_squared_error(y, y_pred)
-r2 = r2_score(y, y_pred)
-
-print(f"Mean Squared Error: {mse}")
-print(f"R-squared: {r2}")
-
-# Print model coefficients
-coefficients = pd.DataFrame({'Feature': X.columns, 'Coefficient': model.coef_})
-print("\nModel Coefficients:")
-print(f"Intercept: {model.intercept_}")
-print(coefficients)
-
-# Plot Actual vs Predicted Energy Consumption
-plt.figure(figsize=(10, 6))
-plt.scatter(y, y_pred, alpha=0.5)
-plt.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
-plt.xlabel('Actual Energy Consumption (Joules)')
-plt.ylabel('Predicted Energy Consumption (Joules)')
-plt.title('Actual vs Predicted Energy Consumption')
-plt.grid(True)
-plt.show()
-
-# --- Additional Visualizations ---
-
-# Plot energy consumption vs. CPU Utilization
-plt.figure(figsize=(10, 6))
-sns.scatterplot(
-    data=all_data_filtered,
-    x='CPU Utilization',
-    y='Proc Energy (Joules)',
-    hue='LoadPercent',
-    palette='viridis'
-)
-plt.title('Processor Energy Consumption vs. CPU Utilization')
-plt.xlabel('CPU Utilization (%)')
-plt.ylabel('Energy Consumption (Joules)')
-plt.grid(True)
-plt.show()
-
-# Plot energy consumption vs. Frequency
-plt.figure(figsize=(10, 6))
-sns.scatterplot(
-    data=all_data_filtered,
-    x='FREQ',
-    y='Proc Energy (Joules)',
-    hue='LoadPercent',
-    palette='viridis'
-)
-plt.title('Processor Energy Consumption vs. Frequency')
-plt.xlabel('Frequency (GHz)')
-plt.ylabel('Energy Consumption (Joules)')
-plt.grid(True)
-plt.show()
-
-# --- Conclusion ---
-
-print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the new baseline data.")
+    
+    # Print the average energy values
+    print("Average Energy Consumption for All Threads:")
+    print(avg_energy_all_threads)
+    
+    # --- Investigate Anomalies ---
+    
+    # Plot additional metrics to check for anomalies
+    metrics_to_plot = ['FREQ', 'TEMP', 'CPU Utilization']
+    
+    for metric in metrics_to_plot:
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(
+            data=all_threads_data,
+            x='LoadPercent',
+            y=metric,
+            estimator='mean',
+            errorbar=None,
+            marker='o'
+        )
+        plt.title(f'Average {metric} (All Threads)')
+        plt.xlabel('Load Percentage (%)')
+        plt.ylabel(f'Average {metric}')
+        plt.grid(True)
+        plt.show()
+    
+    # Check for thermal throttling by plotting CPU frequency and temperature
+    plt.figure(figsize=(10, 6))
+    sc = plt.scatter(
+        x=all_threads_data['TEMP'],
+        y=all_threads_data['FREQ'],
+        c=all_threads_data['LoadPercent'],
+        cmap='viridis'
+    )
+    plt.title('CPU Frequency vs. Temperature (All Threads)')
+    plt.xlabel('Temperature (°C)')
+    plt.ylabel('Frequency (GHz)')
+    plt.colorbar(sc, label='Load Percentage (%)')
+    plt.grid(True)
+    plt.show()
+    
+    # --- Data Diagnostics ---
+    
+    # Identify potential data issues at higher loads
+    high_load_data = all_threads_data[all_threads_data['LoadPercent'] >= 50]
+    
+    # Check for unusual values in energy consumption
+    print("Energy Consumption at High Loads (All Threads):")
+    print(high_load_data[['LoadPercent', 'Proc Energy (Joules)']].describe())
+    
+    # --- Update Regression Analysis ---
+    
+    # Prepare data for regression
+    regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']].dropna()
+    
+    # Define features and target variable
+    X = regression_data[['LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']]
+    y = regression_data['Proc Energy (Joules)']
+    
+    # Fit linear regression model
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    # Make predictions
+    y_pred = model.predict(X)
+    
+    # Calculate performance metrics
+    mse = mean_squared_error(y, y_pred)
+    r2 = r2_score(y, y_pred)
+    
+    print(f"Mean Squared Error: {mse}")
+    print(f"R-squared: {r2}")
+    
+    # Print model coefficients
+    coefficients = pd.DataFrame({'Feature': X.columns, 'Coefficient': model.coef_})
+    print("\nModel Coefficients:")
+    print(f"Intercept: {model.intercept_}")
+    print(coefficients)
+    
+    # Plot Actual vs Predicted Energy Consumption
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y, y_pred, alpha=0.5)
+    plt.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
+    plt.xlabel('Actual Energy Consumption (Joules)')
+    plt.ylabel('Predicted Energy Consumption (Joules)')
+    plt.title('Actual vs Predicted Energy Consumption')
+    plt.grid(True)
+    plt.show()
+    
+    # --- Additional Visualizations ---
+    
+    # Plot energy consumption vs. CPU Utilization
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(
+        data=all_data_filtered,
+        x='CPU Utilization',
+        y='Proc Energy (Joules)',
+        hue='LoadPercent',
+        palette='viridis'
+    )
+    plt.title('Processor Energy Consumption vs. CPU Utilization')
+    plt.xlabel('CPU Utilization (%)')
+    plt.ylabel('Energy Consumption (Joules)')
+    plt.grid(True)
+    plt.show()
+    
+    # Plot energy consumption vs. Frequency
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(
+        data=all_data_filtered,
+        x='FREQ',
+        y='Proc Energy (Joules)',
+        hue='LoadPercent',
+        palette='viridis'
+    )
+    plt.title('Processor Energy Consumption vs. Frequency')
+    plt.xlabel('Frequency (GHz)')
+    plt.ylabel('Energy Consumption (Joules)')
+    plt.grid(True)
+    plt.show()
+    
+    # --- Conclusion ---
+    
+    print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the new baseline data.")
