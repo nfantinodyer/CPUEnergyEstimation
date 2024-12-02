@@ -9,7 +9,7 @@ foreach ($inputFile in $inputFiles) {
     # Determine the relative path from the input directory
     $relativePath = $inputFile.FullName.Substring($inputDirectory.Length)
     if ($relativePath.StartsWith("\") -or $relativePath.StartsWith("/")) {
-        $relativePath = $relativePath.Substring(1)
+        $relativePath = $relativePath.Substring(1) 
     }
 
     # Determine the output file path
@@ -21,22 +21,17 @@ foreach ($inputFile in $inputFiles) {
         New-Item -Path $outputFileDirectory -ItemType Directory -Force | Out-Null
     }
 
-    # Read the input file
     $lines = Get-Content -Path $inputFile.FullName
 
-    # Initialize the adjusted lines array
     $adjustedLines = @()
     $adjustedLines += $datatypeRow
     $adjustedLines += $headerRow
 
-    # Process each line starting from the third line
     foreach ($line in $lines[2..($lines.Count - 1)]) {
-        # Adjust the timestamp format and prepend the measurement
         $adjustedLine = $line -replace '(^\d{4}-\d{2}-\d{2}),(\d{2}:\d{2}:\d{2}\.\d+)', '$1T$2Z'
         $adjustedLine = $measurement + "," + $adjustedLine
         $adjustedLines += $adjustedLine
     }
 
-    # Save the adjusted lines to the output file
     $adjustedLines | Set-Content -Path $outputFilePath
 }
