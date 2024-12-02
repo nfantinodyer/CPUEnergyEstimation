@@ -5,8 +5,8 @@
 # Ensure you run this script with sudo as pcm requires root privileges
 
 # Directories
-PCM_DIR="/Desktop/pcm/build/bin"
-OUTPUT_DIR="~/Desktop"
+PCM_DIR="$HOME/Desktop/pcm/build/bin"
+OUTPUT_DIR="$HOME/Desktop"
 
 # Ensure the msr module is loaded
 sudo modprobe msr
@@ -42,12 +42,15 @@ run_experiment() {
     echo "Temperature output file: $TEMP_FILENAME"
 
     # Start temperature logging in the background
-    collect_temp "$TEMP_FILENAME" &
+    collect_temp "$OUTPUT_DIR/$TEMP_FILENAME" &
     TEMP_PID=$!
 
     # Start pcm data collection in the background
     PCM_OUTPUT_FILE="$OUTPUT_DIR/$PCM_FILENAME"
-    sudo "$PCM_DIR/pcm" /csv 1 60 > "$PCM_OUTPUT_FILE" 2> "$OUTPUT_DIR/pcm_errors.log" &
+    (
+        cd "$PCM_DIR" || exit
+        sudo ./pcm /csv 1 60 > "$PCM_OUTPUT_FILE" 2>> "$OUTPUT_DIR/pcm_errors.log"
+    ) &
     PCM_PID=$!
 
     # Start stress-ng
