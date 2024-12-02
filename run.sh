@@ -10,8 +10,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Directories
-PCM_DIR="Desktop/pcm/build/bin"
-OUTPUT_DIR="Desktop/Data"
+PCM_DIR="/home/yourusername/Desktop/pcm/build/bin"
+OUTPUT_DIR="/home/yourusername/Desktop/Data"
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
 
 # Load percentages for all threads
 all_thread_loads=(0 10 20 30 40 50 60 70 80 90)
@@ -41,6 +44,9 @@ run_test() {
 
   echo "Starting test: Threads=$num_threads, Load=$load_percent%, Output File=$output_filename"
 
+  # Remove existing files if they exist
+  rm -f "$pcm_output_file" "$temp_output_file"
+
   # Calculate sampling interval and count for pcm
   PCM_SAMPLING_INTERVAL="0.05"  # Adjust as needed
   PCM_DURATION="60"  # seconds
@@ -55,37 +61,37 @@ run_test() {
     stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   fi
 
-  # Start temperature logging in the background (integrated into this script)
-  {
-    # Temperature logging code
-    SAMPLING_INTERVAL="$PCM_SAMPLING_INTERVAL"
-    TOTAL_DURATION="$PCM_DURATION"
-    COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
-
-    echo "DateTime,TEMP" > "$temp_output_file"
-
+  # Start temperature logging in a detached screen session
+  screen -dmS temp_log bash -c "
+    SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL'
+    TOTAL_DURATION='$PCM_DURATION'
+    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc)
+    echo 'DateTime,TEMP' > '$temp_output_file'
     for ((i=0; i<COUNT; i++)); do
-        DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
-        TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
-        if [ -z "$TEMP" ]; then
-            TEMP="NaN"
+        DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z')
+        TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}')
+        if [ -z \"\$TEMP\" ]; then
+            TEMP='NaN'
         fi
-        echo "$DATE_TIME,$TEMP" >> "$temp_output_file"
-        sleep "$SAMPLING_INTERVAL"
+        echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file'
+        sleep \"\$SAMPLING_INTERVAL\"
     done
-  } &
-  temp_pid=$!
+  "
 
-  # Start pcm data collection in the background
-  sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2>"$OUTPUT_DIR/pcm_errors.log" &
-  pcm_pid=$!
+  # Start pcm data collection in a detached screen session
+  screen -dmS pcm_log bash -c "
+    sudo '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2>'$OUTPUT_DIR/pcm_errors.log'
+  "
 
-  # Start stress-ng (foreground)
+  # Start stress-ng in the foreground
   eval "$stress_cmd"
 
-  # Wait for background processes to finish
-  wait $temp_pid
-  wait $pcm_pid
+  # Wait for the duration to ensure all processes have finished
+  sleep "$PCM_DURATION"
+
+  # Terminate screen sessions (just in case)
+  screen -S temp_log -X quit
+  screen -S pcm_log -X quit
 
   echo "Completed test: Threads=$num_threads, Load=$load_percent%"
 }
