@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# automate_data_collection.sh
-# Usage: sudo ./automate_data_collection.sh
+# run.sh
+# Usage: sudo ./run.sh
 
 # Ensure the script is run with sudo
 if [ "$EUID" -ne 0 ]; then
@@ -12,7 +12,6 @@ fi
 # Directories
 PCM_DIR="/Desktop/pcm/build/bin"
 OUTPUT_DIR="/Desktop/DataCollection"
-TEMP_SCRIPT_PATH="/path/to/collect_temp.sh"  # Update this path to where your collect_temp.sh script is located
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -62,8 +61,25 @@ run_test() {
     stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   fi
 
-  # Start temperature logging in the background
-  bash "$TEMP_SCRIPT_PATH" "$temp_output_file" "$PCM_SAMPLING_INTERVAL" "$PCM_DURATION" &
+  # Start temperature logging in the background (integrated into this script)
+  {
+    # Temperature logging code
+    SAMPLING_INTERVAL="$PCM_SAMPLING_INTERVAL"
+    TOTAL_DURATION="$PCM_DURATION"
+    COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
+
+    echo "DateTime,TEMP" > "$temp_output_file"
+
+    for ((i=0; i<COUNT; i++)); do
+        DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
+        TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
+        if [ -z "$TEMP" ]; then
+            TEMP="NaN"
+        fi
+        echo "$DATE_TIME,$TEMP" >> "$temp_output_file"
+        sleep "$SAMPLING_INTERVAL"
+    done
+  } &
   temp_pid=$!
 
   # Start pcm data collection in the background
