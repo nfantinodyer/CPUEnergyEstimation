@@ -1,114 +1,126 @@
 #!/bin/bash
 
-# Usage: sudo ./run_experiments.sh
+# Ensure the script is run with sudo
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root (use sudo)"
+  exit
+fi
 
-# Ensure you run this script with sudo as pcm requires root privileges
+# Load the msr module
+modprobe msr
 
-# Directories
+# Variables
 PCM_DIR="/Desktop/pcm/build/bin"
 OUTPUT_DIR="$HOME/Desktop"
+PCM_EXEC="$PCM_DIR/pcm"
+SAMPLING_INTERVAL="0.05"
+TOTAL_DURATION="60"  # In seconds
+PCM_COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
 
-# Ensure the msr module is loaded
-sudo modprobe msr
+# Ensure PCM directory exists
+if [ ! -d "$PCM_DIR" ]; then
+  echo "PCM directory not found at $PCM_DIR"
+  exit 1
+fi
+
+# Ensure PCM executable exists
+if [ ! -f "$PCM_EXEC" ]; then
+  echo "PCM executable not found at $PCM_EXEC"
+  exit 1
+fi
+
+# Create an array of test configurations
+declare -a tests=(
+  # CPU stress tests (each core/thread)
+  "stress-ng --cpu 1 --timeout ${TOTAL_DURATION}s" "LinuxCPUTest1Thread.csv"
+  "stress-ng --cpu 2 --timeout ${TOTAL_DURATION}s" "LinuxCPUTest2Threads.csv"
+  "stress-ng --cpu 3 --timeout ${TOTAL_DURATION}s" "LinuxCPUTest3Threads.csv"
+  "stress-ng --cpu 4 --timeout ${TOTAL_DURATION}s" "LinuxCPUTest4Threads.csv"
+  # Memory stress tests
+  "stress-ng --vm 2 --vm-bytes 1G --timeout ${TOTAL_DURATION}s" "LinuxMemTest2VM.csv"
+  "stress-ng --vm 4 --vm-bytes 2G --timeout ${TOTAL_DURATION}s" "LinuxMemTest4VM.csv"
+  # I/O stress tests
+  "stress-ng --hdd 2 --timeout ${TOTAL_DURATION}s" "LinuxIOTest2HDD.csv"
+  "stress-ng --hdd 4 --timeout ${TOTAL_DURATION}s" "LinuxIOTest4HDD.csv"
+  # Static load on all cores
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 10 --timeout ${TOTAL_DURATION}s" "Linux10Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 20 --timeout ${TOTAL_DURATION}s" "Linux20Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 30 --timeout ${TOTAL_DURATION}s" "Linux30Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 40 --timeout ${TOTAL_DURATION}s" "Linux40Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 50 --timeout ${TOTAL_DURATION}s" "Linux50Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 60 --timeout ${TOTAL_DURATION}s" "Linux60Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 70 --timeout ${TOTAL_DURATION}s" "Linux70Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 80 --timeout ${TOTAL_DURATION}s" "Linux80Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 90 --timeout ${TOTAL_DURATION}s" "Linux90Static.csv"
+  "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 0 --timeout ${TOTAL_DURATION}s"  "Linux0Static.csv"
+  # Static load on 2 threads
+  "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 90 --timeout ${TOTAL_DURATION}s" "Linux90Static2Threads.csv"
+  "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 60 --timeout ${TOTAL_DURATION}s" "Linux60Static2Threads.csv"
+  "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 30 --timeout ${TOTAL_DURATION}s" "Linux30Static2Threads.csv"
+  "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 0 --timeout ${TOTAL_DURATION}s"  "Linux0Static2Threads.csv"
+  # Static load on 4 threads
+  "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 90 --timeout ${TOTAL_DURATION}s" "Linux90Static4Threads.csv"
+  "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 60 --timeout ${TOTAL_DURATION}s" "Linux60Static4Threads.csv"
+  "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 30 --timeout ${TOTAL_DURATION}s" "Linux30Static4Threads.csv"
+  "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 0 --timeout ${TOTAL_DURATION}s"  "Linux0Static4Threads.csv"
+  # Static load on 6 threads
+  "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 90 --timeout ${TOTAL_DURATION}s" "Linux90Static6Threads.csv"
+  "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 60 --timeout ${TOTAL_DURATION}s" "Linux60Static6Threads.csv"
+  "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 30 --timeout ${TOTAL_DURATION}s" "Linux30Static6Threads.csv"
+  "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 0 --timeout ${TOTAL_DURATION}s"  "Linux0Static6Threads.csv"
+)
 
 # Function to collect temperature data
 collect_temp() {
-    TEMP_OUTPUT_FILE="$1"
-    SAMPLING_INTERVAL=0.5  # Adjust as needed
-    TOTAL_DURATION=60      # 60 seconds
-    COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
-
-    echo "DateTime,TEMP" > "$TEMP_OUTPUT_FILE"
-
-    for ((i=0; i<COUNT; i++)); do
-        DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
-        TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
-        if [ -z "$TEMP" ]; then
-            TEMP="NaN"
-        fi
-        echo "$DATE_TIME,$TEMP" >> "$TEMP_OUTPUT_FILE"
-        sleep "$SAMPLING_INTERVAL"
-    done
+  local TEMP_OUTPUT_FILE="$1"
+  local SAMPLING_INTERVAL="2"  # Adjust as needed
+  local COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
+  echo "DateTime,TEMP" > "$TEMP_OUTPUT_FILE"
+  for ((i=0; i<COUNT; i++)); do
+    DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
+    TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
+    if [ -z "$TEMP" ]; then
+      TEMP="NaN"
+    fi
+    echo "$DATE_TIME,$TEMP" >> "$TEMP_OUTPUT_FILE"
+    sleep "$SAMPLING_INTERVAL"
+  done
 }
 
-# Function to run a single experiment
-run_experiment() {
-    STRESS_NG_CMD="$1"
-    PCM_FILENAME="$2"
-    TEMP_FILENAME="$3"
+# Main loop to run tests
+for ((i=0; i<${#tests[@]}; i+=2)); do
+  STRESS_CMD="${tests[i]}"
+  OUTPUT_FILENAME="${tests[i+1]}"
+  PCM_OUTPUT_FILE="$OUTPUT_DIR/$OUTPUT_FILENAME"
+  TEMP_OUTPUT_FILE="$OUTPUT_DIR/Temp_${OUTPUT_FILENAME}"
 
-    echo "Starting experiment with command: $STRESS_NG_CMD"
-    echo "PCM output file: $PCM_FILENAME"
-    echo "Temperature output file: $TEMP_FILENAME"
+  echo "Running test: $STRESS_CMD"
+  echo "PCM data will be saved to: $PCM_OUTPUT_FILE"
+  echo "Temperature data will be saved to: $TEMP_OUTPUT_FILE"
 
-    # Start temperature logging in the background
-    collect_temp "$TEMP_FILENAME" &
-    TEMP_PID=$!
+  # Remove existing output files if they exist
+  rm -f "$PCM_OUTPUT_FILE" "$TEMP_OUTPUT_FILE"
 
-    # Start pcm data collection in the background
-    PCM_OUTPUT_FILE="$OUTPUT_DIR/$PCM_FILENAME"
-    sudo "$PCM_DIR/pcm" /csv 1 60 > "$PCM_OUTPUT_FILE" 2> "$OUTPUT_DIR/pcm_errors.log" &
-    PCM_PID=$!
+  # Navigate to PCM directory
+  cd "$PCM_DIR"
 
-    # Start stress-ng
-    eval "$STRESS_NG_CMD"
+  # Start temperature collection in the background
+  collect_temp "$TEMP_OUTPUT_FILE" &
 
-    # Wait for background processes to finish
-    wait $TEMP_PID
-    wait $PCM_PID
+  # Start PCM data collection in the background
+  sudo ./pcm /csv "$SAMPLING_INTERVAL" "$PCM_COUNT" > "$PCM_OUTPUT_FILE" 2>/dev/null &
 
-    echo "Experiment completed: $STRESS_NG_CMD"
-}
+  # Start stress-ng
+  eval "$STRESS_CMD" &
 
-# Array of experiments
-declare -a experiments=(
-    # CPU Stress - All cores
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 0 --timeout 60s|Linux0Static.csv|Temp0Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 10 --timeout 60s|Linux10Static.csv|Temp10Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 20 --timeout 60s|Linux20Static.csv|Temp20Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 30 --timeout 60s|Linux30Static.csv|Temp30Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 40 --timeout 60s|Linux40Static.csv|Temp40Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 50 --timeout 60s|Linux50Static.csv|Temp50Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 60 --timeout 60s|Linux60Static.csv|Temp60Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 70 --timeout 60s|Linux70Static.csv|Temp70Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 80 --timeout 60s|Linux80Static.csv|Temp80Static.csv"
-    "stress-ng --cpu 0 --cpu-method matrixprod --cpu-load 90 --timeout 60s|Linux90Static.csv|Temp90Static.csv"
+  # Wait for stress-ng to complete
+  wait %3  # Wait for the stress-ng process
 
-    # CPU Stress - 2 threads
-    "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 0 --timeout 60s|Linux0Static2threads.csv|Temp0Static2threads.csv"
-    "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 30 --timeout 60s|Linux30Static2threads.csv|Temp30Static2threads.csv"
-    "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 60 --timeout 60s|Linux60Static2threads.csv|Temp60Static2threads.csv"
-    "stress-ng --cpu 2 --cpu-method matrixprod --cpu-load 90 --timeout 60s|Linux90Static2threads.csv|Temp90Static2threads.csv"
+  # Kill any remaining background processes (pcm and temp collection)
+  kill %1 %2 2>/dev/null
 
-    # CPU Stress - 4 threads
-    "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 0 --timeout 60s|Linux0Static4threads.csv|Temp0Static4threads.csv"
-    "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 30 --timeout 60s|Linux30Static4threads.csv|Temp30Static4threads.csv"
-    "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 60 --timeout 60s|Linux60Static4threads.csv|Temp60Static4threads.csv"
-    "stress-ng --cpu 4 --cpu-method matrixprod --cpu-load 90 --timeout 60s|Linux90Static4threads.csv|Temp90Static4threads.csv"
-
-    # CPU Stress - 6 threads
-    "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 0 --timeout 60s|Linux0Static6threads.csv|Temp0Static6threads.csv"
-    "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 30 --timeout 60s|Linux30Static6threads.csv|Temp30Static6threads.csv"
-    "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 60 --timeout 60s|Linux60Static6threads.csv|Temp60Static6threads.csv"
-    "stress-ng --cpu 6 --cpu-method matrixprod --cpu-load 90 --timeout 60s|Linux90Static6threads.csv|Temp90Static6threads.csv"
-
-    # Memory Stress
-    "stress-ng --vm 2 --vm-bytes 1G --timeout 60s|LinuxMem1.csv|TempMem1.csv"
-    "stress-ng --vm 4 --vm-bytes 2G --timeout 60s|LinuxMem2.csv|TempMem2.csv"
-
-    # I/O Stress
-    "stress-ng --hdd 2 --timeout 60s|LinuxIO1.csv|TempIO1.csv"
-    "stress-ng --hdd 4 --timeout 60s|LinuxIO2.csv|TempIO2.csv"
-)
-
-# Main loop to run all experiments
-for exp in "${experiments[@]}"; do
-    # Parse the experiment string
-    IFS='|' read -r STRESS_NG_CMD PCM_FILENAME TEMP_FILENAME <<< "$exp"
-
-    # Run the experiment
-    run_experiment "$STRESS_NG_CMD" "$PCM_FILENAME" "$TEMP_FILENAME"
-
-    # Optional: Add a short delay between experiments
-    sleep 10
+  echo "Test completed: $STRESS_CMD"
+  echo "---------------------------------------"
 done
+
+echo "All tests completed."
