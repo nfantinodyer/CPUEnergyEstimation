@@ -1,21 +1,11 @@
 #!/bin/bash
 
 # run.sh
-# Usage: sudo ./run.sh
-
-# Ensure the script is run with sudo
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root using sudo."
-  exit
-fi
-
-# Export environment variables for GUI applications
-export DISPLAY=:0
-export XAUTHORITY=/home/rob/.Xauthority
+# Usage: ./run.sh
 
 # Directories
-PCM_DIR="Desktop/pcm/build/bin"
-OUTPUT_DIR="Desktop/Data"
+PCM_DIR="/home/rob/Desktop/pcm/build/bin"
+OUTPUT_DIR="/home/rob/Desktop/Data"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -45,7 +35,6 @@ run_test() {
   output_filename="Linux${load_percent}Static${thread_label}.csv"
   pcm_output_file="$OUTPUT_DIR/$output_filename"
   temp_output_file="$OUTPUT_DIR/temp_${output_filename}"
-  pcm_error_log="$OUTPUT_DIR/pcm_errors.log"
 
   echo "Starting test: Threads=$num_threads, Load=$load_percent%, Output File=$output_filename"
 
@@ -68,42 +57,48 @@ run_test() {
   fi
 
   # Start stress-ng in a new xterm window
-  xterm -hold -e bash -c "echo 'Starting stress-ng...';
-sudo $stress_cmd;
-echo 'stress-ng completed.';
-read -p 'Press Enter to close...';" &
+  xterm -hold -e bash -c "
+    echo 'Starting stress-ng...';
+    $stress_cmd;
+    echo 'stress-ng completed.';
+    read -p 'Press Enter to close...';
+  " &
   stress_pid=$!
 
   # Wait a moment to ensure stress-ng has started
   sleep 2
 
-  # Start pcm data collection in a new xterm window using 'script' to capture output incrementally
-  xterm -hold -e bash -c "echo 'Starting pcm data collection...';
-sudo script -q -c '$PCM_DIR/pcm /csv $PCM_SAMPLING_INTERVAL $PCM_COUNT' '$pcm_output_file';
-echo 'pcm data collection completed.';
-read -p 'Press Enter to close...';" &
+  # Start pcm data collection in a new xterm window
+  xterm -hold -e bash -c "
+    echo 'Starting pcm data collection...';
+    sudo $PCM_DIR/pcm /csv $PCM_SAMPLING_INTERVAL $PCM_COUNT | tee '$pcm_output_file';
+    echo 'pcm data collection completed.';
+    read -p 'Press Enter to close...';
+  " &
   pcm_pid=$!
 
   # Wait for PCM_DURATION to allow pcm data collection to complete
   sleep "$PCM_DURATION"
 
   # Start temperature logging in a new xterm window
-  xterm -hold -e bash -c "echo 'Starting temperature logging...';
-SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL';
-TOTAL_DURATION='$PCM_DURATION';
-COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc);
-echo 'DateTime,TEMP' > '$temp_output_file';
-for ((i=0; i<COUNT; i++)); do
-    DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z');
-    TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}');
-    if [ -z \"\$TEMP\" ]; then
+  xterm -hold -e bash -c "
+    echo 'Starting temperature logging...';
+    SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL';
+    TOTAL_DURATION='$PCM_DURATION';
+    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc);
+    echo 'DateTime,TEMP' > '$temp_output_file';
+    for ((i=0; i<COUNT; i++)); do
+      DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z');
+      TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}');
+      if [ -z \"\$TEMP\" ]; then
         TEMP='NaN';
-    fi
-    echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file';
-    sleep \$SAMPLING_INTERVAL;
-done;
-echo 'Temperature logging completed.';
-read -p 'Press Enter to close...';" &
+      fi
+      echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file';
+      sleep \$SAMPLING_INTERVAL;
+    done;
+    echo 'Temperature logging completed.';
+    read -p 'Press Enter to close...';
+  " &
   temp_pid=$!
 
   # Wait for PCM_DURATION to allow temperature logging to complete
