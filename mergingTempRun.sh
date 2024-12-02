@@ -11,13 +11,16 @@ sudo modprobe msr
 
 # Function to collect temperature data and output to stdout
 collect_temp() {
+    # Output two header lines
+    echo "Signal"
+    echo "Temperature"
+
     SAMPLING_INTERVAL=1  # Same as PCM sampling interval
     TOTAL_DURATION=60    # 60 seconds
     COUNT=$((TOTAL_DURATION / SAMPLING_INTERVAL))
 
-    for ((i=0; i<COUNT; i++)); do
-        DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
-        TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
+    for ((i=0; i<=COUNT; i++)); do
+        TEMP=$(sensors -u | grep -E 'temp[1-9]_input' | head -1 | awk '{print $2}')
         if [ -z "$TEMP" ]; then
             TEMP="NaN"
         fi
@@ -34,15 +37,46 @@ run_experiment() {
     echo "Starting experiment with command: $STRESS_NG_CMD"
     echo "PCM output file: $PCM_FILENAME"
 
-    # Start PCM data collection and merge with temperature data
-    PCM_OUTPUT_FILE="$OUTPUT_DIR/$PCM_FILENAME"
-    
     # Start stress-ng in the background
     eval "$STRESS_NG_CMD" &
 
-    # Collect PCM data and merge with temperature
-    sudo "$PCM_DIR/pcm" /csv 1 -i=60 2> "$OUTPUT_DIR/pcm_errors.log" | \
-    paste -d ',' - <(collect_temp) > "$PCM_OUTPUT_FILE"
+    # Start PCM data collection and redirect output to a temporary file
+    PCM_TEMP_FILE="$(mktemp)"
+    sudo "$PCM_DIR/pcm" /csv 1 -i=60 2> "$OUTPUT_DIR/pcm_errors.log" > "$PCM_TEMP_FILE" &
+
+    # Collect temperature data and redirect output to a temporary file
+    TEMP_TEMP_FILE="$(mktemp)"
+    collect_temp > "$TEMP_TEMP_FILE" &
+
+    # Wait for both background processes to finish
+    wait
+
+    # Merge PCM data and temperature data
+    PCM_LINES=$(wc -l < "$PCM_TEMP_FILE")
+    TEMP_LINES=$(wc -l < "$TEMP_TEMP_FILE")
+
+    # Ensure both files have the same number of lines
+    if [ "$PCM_LINES" -ne "$TEMP_LINES" ]; then
+        echo "Mismatch in number of lines between PCM and temperature data."
+        echo "PCM lines: $PCM_LINES, TEMP lines: $TEMP_LINES"
+        echo "Adjusting temperature data to match PCM data."
+
+        # Calculate the difference in lines
+        LINE_DIFF=$((PCM_LINES - TEMP_LINES))
+
+        # Add empty lines to TEMP_TEMP_FILE if necessary
+        if [ "$LINE_DIFF" -gt 0 ]; then
+            for ((i=0; i<LINE_DIFF; i++)); do
+                echo "" >> "$TEMP_TEMP_FILE"
+            done
+        fi
+    fi
+
+    # Merge the two files
+    paste -d ',' "$PCM_TEMP_FILE" "$TEMP_TEMP_FILE" > "$OUTPUT_DIR/$PCM_FILENAME"
+
+    # Remove temporary files
+    rm "$PCM_TEMP_FILE" "$TEMP_TEMP_FILE"
 
     # Wait for stress-ng to finish
     wait
