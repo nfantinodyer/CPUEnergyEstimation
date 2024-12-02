@@ -9,9 +9,13 @@ if [ "$EUID" -ne 0 ]; then
   exit
 fi
 
+# Export environment variables for GUI applications
+export DISPLAY=:0
+export XAUTHORITY=/home/yourusername/.Xauthority
+
 # Directories
-PCM_DIR="Desktop/pcm/build/bin"
-OUTPUT_DIR="Desktop/Data"
+PCM_DIR="/home/yourusername/Desktop/pcm/build/bin"
+OUTPUT_DIR="/home/yourusername/Desktop/Data"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -56,36 +60,53 @@ run_test() {
   # Build stress-ng command
   if [ "$num_threads" -eq 8 ]; then
     # All threads
-    stress_cmd="sudo stress-ng --cpu 0 --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
+    stress_cmd="stress-ng --cpu 0 --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   else
     # Specific number of threads
-    stress_cmd="sudo stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
+    stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   fi
 
-  # Start temperature logging in a new terminal window
-  gnome-terminal -- bash -c "sudo -E bash -c '
-    SAMPLING_INTERVAL=\"$PCM_SAMPLING_INTERVAL\"
-    TOTAL_DURATION=\"$PCM_DURATION\"
-    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc)
-
-    echo \"DateTime,TEMP\" > \"$temp_output_file\"
-
+  # Start temperature logging in a new xterm window
+  xterm -hold -e bash -c "
+    echo 'Starting temperature logging...';
+    SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL';
+    TOTAL_DURATION='$PCM_DURATION';
+    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc);
+    echo 'DateTime,TEMP' > '$temp_output_file';
     for ((i=0; i<COUNT; i++)); do
-        DATE_TIME=\$(date \"+%Y-%m-%d %H:%M:%S.%N %z\")
-        TEMP=\$(sensors -u | grep \"temp1_input\" | head -1 | awk \"{print \$2}\")
+        DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z');
+        TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}');
         if [ -z \"\$TEMP\" ]; then
-            TEMP=\"NaN\"
+            TEMP='NaN';
         fi
-        echo \"\$DATE_TIME,\$TEMP\" >> \"$temp_output_file\"
-        sleep \"\$SAMPLING_INTERVAL\"
-    done
-  '"
+        echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file';
+        sleep \$SAMPLING_INTERVAL;
+    done;
+    echo 'Temperature logging completed.';
+    read -p 'Press Enter to close...';
+  " &
 
-  # Start pcm data collection in a new terminal window
-  gnome-terminal -- bash -c "sudo -E '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2>'$pcm_error_log'"
+  temp_pid=$!
 
-  # Start stress-ng in a new terminal window
-  gnome-terminal -- bash -c "$stress_cmd"
+  # Start pcm data collection in a new xterm window
+  xterm -hold -e bash -c "
+    echo 'Starting pcm data collection...';
+    sudo '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2> '$pcm_error_log';
+    echo 'pcm data collection completed.';
+    read -p 'Press Enter to close...';
+  " &
+
+  pcm_pid=$!
+
+  # Start stress-ng in a new xterm window
+  xterm -hold -e bash -c "
+    echo 'Starting stress-ng...';
+    sudo $stress_cmd;
+    echo 'stress-ng completed.';
+    read -p 'Press Enter to close...';
+  " &
+
+  stress_pid=$!
 
   # Wait for the duration of the test plus a buffer
   sleep $(($PCM_DURATION + 5))
