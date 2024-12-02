@@ -10,11 +10,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Directories
-PCM_DIR="/Desktop/pcm/build/bin"
-OUTPUT_DIR="/Desktop/DataCollection"
-
-# Create output directory if it doesn't exist
-mkdir -p "$OUTPUT_DIR"
+PCM_DIR="Desktop/pcm/build/bin"
+OUTPUT_DIR="Desktop/Data"
 
 # Load percentages for all threads
 all_thread_loads=(0 10 20 30 40 50 60 70 80 90)
@@ -43,9 +40,6 @@ run_test() {
   temp_output_file="$OUTPUT_DIR/temp_${output_filename}"
 
   echo "Starting test: Threads=$num_threads, Load=$load_percent%, Output File=$output_filename"
-
-  # Remove existing files if they exist
-  rm -f "$pcm_output_file" "$temp_output_file"
 
   # Calculate sampling interval and count for pcm
   PCM_SAMPLING_INTERVAL="0.05"  # Adjust as needed
@@ -83,8 +77,7 @@ run_test() {
   temp_pid=$!
 
   # Start pcm data collection in the background
-  cd "$PCM_DIR"
-  sudo ./pcm /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2>/dev/null &
+  sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2>"$OUTPUT_DIR/pcm_errors.log" &
   pcm_pid=$!
 
   # Start stress-ng (foreground)
