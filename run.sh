@@ -1,12 +1,16 @@
 #!/bin/bash
 
-# Usage: sudo ./run_experiments.sh
-
 # Ensure you run this script with sudo as pcm requires root privileges
 
-# Directories
-PCM_DIR="$HOME/Desktop/pcm/build/bin"
-OUTPUT_DIR="$HOME/Desktop"
+# Get the user's home directory, even when running with sudo
+if [ -n "$SUDO_USER" ]; then
+    USER_HOME=$(eval echo "~$SUDO_USER")
+    OUTPUT_DIR="$USER_HOME/Desktop"
+else
+    OUTPUT_DIR="$HOME/Desktop"
+fi
+
+PCM_DIR="$OUTPUT_DIR/pcm/build/bin"
 
 # Ensure the msr module is loaded
 sudo modprobe msr
