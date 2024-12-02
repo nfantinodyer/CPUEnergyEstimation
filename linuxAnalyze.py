@@ -5,101 +5,77 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, r2_score
 
+# Set seaborn style
+sns.set_style(style='whitegrid')
+
 # Define base directory (adjust this path as needed)
-base_dir = 'Data/NewData/Linux/StressNGData/CPUEnergyEstimation/Data/Linux/StressNGData/Static'
+base_dir = 'Data/NewData/Linux/StressNGData'
 
 # Define directories for each thread count
 directories = {
-    'All Threads': os.path.join(base_dir, 'All Threads'),
-    'Two Threads': os.path.join(base_dir, 'TwoThreads'),
-    'Four Threads': os.path.join(base_dir, 'FourThreads'),
-    'Six Threads': os.path.join(base_dir, 'SixThreads')
+    'All Threads': os.path.join(base_dir, 'Static', 'AllThreads'),
+    '2 Threads': os.path.join(base_dir, 'Static', 'TwoThreads'),
+    '4 Threads': os.path.join(base_dir, 'Static', 'FourThreads'),
+    '6 Threads': os.path.join(base_dir, 'Static', 'SixThreads')
 }
 
-# Mapping from word to integer for thread counts
-word_to_num = {
-    'Two': 2,
-    'Four': 4,
-    'Six': 6
-}
-
-# Define load percentages including the new 0% load
-all_loads = [0] + list(range(0, 100, 10))  # 0% to 90% in increments of 10%
-partial_loads = [0, 30, 60, 90]  # For 2, 4, 6 threads including 0%
+# Define load percentages
+all_loads = list(range(0, 100, 10))  # 0% to 90% in increments of 10%
+partial_loads = [0, 30, 60, 90]      # For 2, 4, 6 threads
 
 # Function to create file paths
 def create_file_paths(directory, loads, suffix):
     return [os.path.join(directory, f'Linux{load}{suffix}.csv') for load in loads]
 
 # Function to load data and extract metadata
-def load_data(files, num_threads):
+def load_data(files, num_threads_label):
     data_frames = []
     for file_path in files:
         if os.path.exists(file_path):
             print(f"Loading file: {file_path}")
             # Read CSV, skipping the first line (#datatype)
-            df = pd.read_csv(file_path, skiprows=1)
+            df = pd.read_csv(file_path, skiprows=1, header=0)
             # Convert 'DateTime' column
             df['DateTime'] = pd.to_datetime(df['DateTime'], errors='coerce')
             df.dropna(subset=['DateTime'], inplace=True)
-            
+
             # Extract load percentage from filename
             filename = os.path.basename(file_path)
-            load_match = re.search(r'(\d+)', filename)
+            load_match = re.search(r'Linux(\d+)', filename)
             load_percent = int(load_match.group(1)) if load_match else None
-            
+
             # Add metadata columns
             df['LoadPercent'] = load_percent
-            df['NumThreads'] = num_threads
+            df['NumThreadsLabel'] = num_threads_label
             df['SourceFile'] = filename  # Include the source file name
-            
+
             data_frames.append(df)
         else:
             print(f"File not found: {file_path}")
     return data_frames
 
-# Determine the actual maximum number of threads
-# For the purpose of this code, let's assume it's 8
-max_threads = 8  # Adjust this number to match your system's maximum threads
-
-# Adjust the mapping
-num_threads_labels = {
-    max_threads: 'All Threads',
-    2: '2 Threads',
-    4: '4 Threads',
-    6: '6 Threads'
-}
-
 # Initialize data frames list
 data_frames = []
 
 # Iterate over each directory and load data
-for label, dir_path in directories.items():
-    if 'All' in label:
+for num_threads_label, dir_path in directories.items():
+    if 'All' in num_threads_label:
         files = create_file_paths(dir_path, all_loads, 'Static')
-        num_threads = max_threads  # Set num_threads to the actual max threads
     else:
-        thread_word = label.split()[0]  # e.g., 'Two', 'Four', 'Six'
-        threads_num = word_to_num.get(thread_word, None)
-        if threads_num is None:
-            print(f"Unknown thread count: {thread_word}")
-            continue
+        # Extract number of threads from label
+        threads_num = int(num_threads_label.split()[0])
         files = create_file_paths(dir_path, partial_loads, f'Static{threads_num}threads')
-        num_threads = threads_num
-    data_frames.extend(load_data(files, num_threads))
+    data_frames.extend(load_data(files, num_threads_label))
 
 # Combine all data
 all_data = pd.concat(data_frames, ignore_index=True)
 
-# Convert 'NumThreads' to numeric (should already be numeric)
-all_data['NumThreads'] = pd.to_numeric(all_data['NumThreads'], errors='coerce')
-all_data.dropna(subset=['NumThreads'], inplace=True)
-
-# Print unique values of NumThreads
-print("Unique NumThreads values in all_data:")
-print(all_data['NumThreads'].unique())
+# Print unique NumThreadsLabel values
+print("Unique NumThreadsLabel values in all_data:")
+print(all_data['NumThreadsLabel'].unique())
 
 # Print columns in all_data
 print("Columns in all_data:")
@@ -107,8 +83,8 @@ print(all_data.columns.tolist())
 
 # Define columns of interest
 columnsOfInterest = [
-    'DateTime', 'LoadPercent', 'NumThreads', 'SourceFile',
-    'Proc Energy (Joules)', 'CPU Utilization', 'FREQ', 'AFREQ', 'TEMP', 'C0res%', 'C1res%', 'C3res%',
+    'DateTime', 'LoadPercent', 'NumThreadsLabel', 'SourceFile',
+    'Proc Energy (Joules)', 'FREQ', 'AFREQ', 'TEMP', 'C0res%', 'C1res%', 'C3res%',
     'C6res%', 'C7res%', 'READ', 'WRITE'
 ]
 
@@ -139,22 +115,31 @@ print(matchingColumns)
 all_data_filtered = all_data[list(matchingColumns.values())].copy()
 all_data_filtered.columns = list(matchingColumns.keys())
 
-# Print columns in all_data_filtered
-print("Columns in all_data_filtered:")
-print(all_data_filtered.columns.tolist())
-
 # Data cleaning
+# Replace zero temperatures with NaN
+all_data_filtered['TEMP'].replace(0, np.nan, inplace=True)
+all_data_filtered['TEMP'] = pd.to_numeric(all_data_filtered['TEMP'], errors='coerce')
+
+# Interpolate missing temperature values if appropriate
+all_data_filtered['TEMP'].interpolate(method='linear', inplace=True)
+
+# Drop rows with remaining missing values
+all_data_filtered.dropna(subset=['TEMP'], inplace=True)
+
+# Convert 'LoadPercent' to numeric
 all_data_filtered['LoadPercent'] = pd.to_numeric(all_data_filtered['LoadPercent'], errors='coerce')
-all_data_filtered['NumThreads'] = pd.to_numeric(all_data_filtered['NumThreads'], errors='coerce')
+all_data_filtered['LoadPercent'].fillna(0, inplace=True)
 
-# Map 'NumThreads' to labels
-all_data_filtered['NumThreadsLabel'] = all_data_filtered['NumThreads'].map(num_threads_labels)
+# Map 'NumThreadsLabel' to number of threads
+num_threads_mapping = {
+    'All Threads': 8,  # Adjust to match your system's max threads
+    '2 Threads': 2,
+    '4 Threads': 4,
+    '6 Threads': 6
+}
+all_data_filtered['NumThreads'] = all_data_filtered['NumThreadsLabel'].map(num_threads_mapping)
 
-# Print unique NumThreadsLabel values
-print("Unique NumThreadsLabel values in all_data_filtered:")
-print(all_data_filtered['NumThreadsLabel'].unique())
-
-# Check for 'CPU Utilization'
+# Create 'CPU Utilization' from 'C0res%' if not present
 if 'CPU Utilization' not in all_data_filtered.columns and 'C0res%' in all_data_filtered.columns:
     all_data_filtered['CPU Utilization'] = all_data_filtered['C0res%']
     print("Created 'CPU Utilization' from 'C0res%'")
@@ -165,31 +150,9 @@ else:
 print("First few rows of all_data_filtered:")
 print(all_data_filtered.head())
 
-# --- Identify Zero or Missing Temperature Values with Source Files ---
+# --- Proceed with Analysis ---
 
-# Replace missing or non-numeric TEMP values with NaN
-all_data_filtered['TEMP'] = pd.to_numeric(all_data_filtered['TEMP'], errors='coerce')
-
-# Find entries with zero or missing temperature values
-zero_temp_entries = all_data_filtered[(all_data_filtered['TEMP'].isna()) | (all_data_filtered['TEMP'] == 0)]
-
-# Check if any zero or missing temperature entries are found
-if not zero_temp_entries.empty:
-    print("Entries with zero or missing temperature values and their source files:")
-    print(zero_temp_entries[['DateTime', 'LoadPercent', 'NumThreads', 'NumThreadsLabel', 'SourceFile', 'TEMP']])
-else:
-    print("No zero or missing temperature values found.")
-
-# --- Continue with Analysis ---
-
-# Optionally, remove entries with zero or missing temperature values if needed
-# all_data_filtered = all_data_filtered[~((all_data_filtered['TEMP'].isna()) | (all_data_filtered['TEMP'] == 0))]
-
-# --- Update Analysis with Baseline Data ---
-
-# Proceed with your analysis as before...
-
-# For example, filter data for 'All Threads' only
+# Filter data for 'All Threads' only
 all_threads_data = all_data_filtered[all_data_filtered['NumThreadsLabel'] == 'All Threads'].copy()
 
 # Check if 'all_threads_data' is not empty
@@ -198,7 +161,7 @@ if all_threads_data.empty:
 else:
     # Compute average processor energy consumption for 'All Threads'
     avg_energy_all_threads = all_threads_data.groupby('LoadPercent')['Proc Energy (Joules)'].mean().reset_index()
-    
+
     # Plotting average energy consumption for 'All Threads' including baseline
     plt.figure(figsize=(10, 6))
     sns.lineplot(
@@ -212,16 +175,16 @@ else:
     plt.ylabel('Average Energy (Joules)')
     plt.grid(True)
     plt.show()
-    
+
     # Print the average energy values
     print("Average Energy Consumption for All Threads:")
     print(avg_energy_all_threads)
-    
+
     # --- Investigate Anomalies ---
 
     # Plot additional metrics to check for anomalies
     metrics_to_plot = ['FREQ', 'TEMP', 'CPU Utilization']
-    
+
     for metric in metrics_to_plot:
         plt.figure(figsize=(10, 6))
         sns.lineplot(
@@ -237,7 +200,7 @@ else:
         plt.ylabel(f'Average {metric}')
         plt.grid(True)
         plt.show()
-    
+
     # Check for thermal throttling by plotting CPU frequency and temperature
     plt.figure(figsize=(10, 6))
     sc = plt.scatter(
@@ -252,45 +215,58 @@ else:
     plt.colorbar(sc, label='Load Percentage (%)')
     plt.grid(True)
     plt.show()
-    
+
     # --- Data Diagnostics ---
 
     # Identify potential data issues at higher loads
     high_load_data = all_threads_data[all_threads_data['LoadPercent'] >= 70]
-    
+
     # Check for unusual values in temperature
     print("Temperature Data at High Loads (All Threads):")
     print(high_load_data[['LoadPercent', 'TEMP']].describe())
-    
+
     # --- Update Regression Analysis ---
 
     # Prepare data for regression
     regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']].dropna()
-    
+
     # Define features and target variable
     X = regression_data[['LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']]
     y = regression_data['Proc Energy (Joules)']
-    
-    # Fit linear regression model
+
+    # Normalize features
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Fit polynomial regression model
+    poly = PolynomialFeatures(degree=2, include_bias=False)
+    X_poly = poly.fit_transform(X_scaled)
+
     model = LinearRegression()
-    model.fit(X, y)
-    
+    model.fit(X_poly, y)
+
     # Make predictions
-    y_pred = model.predict(X)
-    
+    y_pred = model.predict(X_poly)
+
     # Calculate performance metrics
     mse = mean_squared_error(y, y_pred)
+    rmse = np.sqrt(mse)
     r2 = r2_score(y, y_pred)
-    
-    print(f"Mean Squared Error: {mse}")
-    print(f"R-squared: {r2}")
-    
+
+    print(f"Polynomial Regression - RMSE: {rmse:.4f}")
+    print(f"Polynomial Regression - R-squared: {r2:.4f}")
+
     # Print model coefficients
-    coefficients = pd.DataFrame({'Feature': X.columns, 'Coefficient': model.coef_})
+    feature_names = poly.get_feature_names_out(X.columns)
+    coefficients = pd.DataFrame({
+        'Feature': feature_names,
+        'Coefficient': model.coef_
+    })
     print("\nModel Coefficients:")
     print(f"Intercept: {model.intercept_}")
     print(coefficients)
-    
+
     # Plot Actual vs Predicted Energy Consumption
     plt.figure(figsize=(10, 6))
     plt.scatter(y, y_pred, alpha=0.5)
@@ -300,7 +276,18 @@ else:
     plt.title('Actual vs Predicted Energy Consumption')
     plt.grid(True)
     plt.show()
-    
+
+    # Residual Plot
+    residuals = y - y_pred
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y_pred, residuals, alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.xlabel('Predicted Energy Consumption (Joules)')
+    plt.ylabel('Residuals')
+    plt.title('Residual Plot')
+    plt.grid(True)
+    plt.show()
+
     # --- Additional Visualizations ---
 
     # Plot energy consumption vs. CPU Utilization
@@ -317,7 +304,7 @@ else:
     plt.ylabel('Energy Consumption (Joules)')
     plt.grid(True)
     plt.show()
-    
+
     # Plot energy consumption vs. Frequency
     plt.figure(figsize=(10, 6))
     sns.scatterplot(
@@ -332,7 +319,7 @@ else:
     plt.ylabel('Energy Consumption (Joules)')
     plt.grid(True)
     plt.show()
-    
+
     # --- Conclusion ---
 
     print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the temperature data.")

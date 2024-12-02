@@ -1,5 +1,8 @@
 $inputDirectory = "Data\Linux\StressNGData"
 $outputDirectory = "Data\NewData\Linux\StressNGData"
+if (!(Test-Path $outputDirectory)) {
+    New-Item -Path $outputDirectory -ItemType Directory -Force | Out-Null
+}
 
 #resolve to full absolute paths
 $inputDirectory = (Get-Item -Path $inputDirectory).FullName
