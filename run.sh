@@ -31,10 +31,6 @@ run_test() {
     thread_label="${num_threads}threads"
   fi
 
-  # Set environment variables for expect script
-  export LOAD_PERCENT="$load_percent"
-  export THREAD_LABEL="$thread_label"
-
   # Construct filenames
   output_filename="Linux${load_percent}Static${thread_label}.csv"
   pcm_output_file="$OUTPUT_DIR/$output_filename"
@@ -60,56 +56,48 @@ run_test() {
     stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${STRESS_DURATION}s"
   fi
 
-  # Start stress-ng in a new xterm window
-  xterm -hold -e bash -c "
-    echo 'Starting stress-ng...';
-    $stress_cmd;
-    echo 'stress-ng completed.';
-    read -p 'Press Enter to close...';
-  " &
-  stress_pid=$!
+  # Start stress-ng in a new terminal and automate typing the command
+  gnome-terminal &
+  sleep 1  # Wait for the terminal to open
+  WINDOW_ID=$(xdotool search --onlyvisible --class gnome-terminal | tail -1)
+  xdotool windowactivate $WINDOW_ID
+  xdotool type --delay 100 "$stress_cmd"
+  xdotool key Return
 
   # Wait a moment to ensure stress-ng has started
   sleep 2
 
-  # Start pcm data collection using expect script in a new xterm window
-  xterm -hold -e bash -c "
-    echo 'Starting pcm data collection...';
-    ./run_pcm_expect.sh;
-    echo 'pcm data collection completed.';
-    read -p 'Press Enter to close...';
-  " &
-  pcm_pid=$!
+  # Start pcm data collection in a new terminal and automate typing the command
+  gnome-terminal &
+  sleep 1  # Wait for the terminal to open
+  PCM_WINDOW_ID=$(xdotool search --onlyvisible --class gnome-terminal | tail -1)
+  xdotool windowactivate $PCM_WINDOW_ID
+  xdotool type --delay 100 "sudo $PCM_DIR/pcm /csv $PCM_SAMPLING_INTERVAL $PCM_COUNT | tee '$pcm_output_file'"
+  xdotool key Return
 
   # Wait for PCM_DURATION to allow pcm data collection to complete
   sleep "$PCM_DURATION"
 
-  # Start temperature logging in a new xterm window
-  xterm -hold -e bash -c "
-    echo 'Starting temperature logging...';
-    SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL';
-    TOTAL_DURATION='$PCM_DURATION';
-    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc);
-    echo 'DateTime,TEMP' > '$temp_output_file';
-    for ((i=0; i<COUNT; i++)); do
-      DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z');
-      TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}');
-      if [ -z \"\$TEMP\" ]; then
-        TEMP='NaN';
-      fi
-      echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file';
-      sleep \$SAMPLING_INTERVAL;
-    done;
-    echo 'Temperature logging completed.';
-    read -p 'Press Enter to close...';
-  " &
-  temp_pid=$!
+  # Start temperature logging in a new terminal and automate typing the command
+  gnome-terminal &
+  sleep 1  # Wait for the terminal to open
+  TEMP_WINDOW_ID=$(xdotool search --onlyvisible --class gnome-terminal | tail -1)
+  xdotool windowactivate $TEMP_WINDOW_ID
+  xdotool type --delay 100 "echo 'DateTime,TEMP' > '$temp_output_file'; \
+for ((i=0; i<$PCM_COUNT; i++)); do \
+  DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z'); \
+  TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}'); \
+  if [ -z \"\$TEMP\" ]; then TEMP='NaN'; fi; \
+  echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file'; \
+  sleep $PCM_SAMPLING_INTERVAL; \
+done"
+  xdotool key Return
 
   # Wait for PCM_DURATION to allow temperature logging to complete
   sleep "$PCM_DURATION"
 
   # Wait for stress-ng to complete if it hasn't already
-  wait $stress_pid
+  sleep $((STRESS_DURATION - PCM_DURATION * 2))
 
   echo "Completed test: Threads=$num_threads, Load=$load_percent%"
 }
