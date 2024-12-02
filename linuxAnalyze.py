@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 
 # Set seaborn style
-sns.set_style(style='whitegrid')
+sns.set_style('whitegrid')
 
 # Define base directory (adjust this path as needed)
 base_dir = 'Data/NewData/Linux/StressNGData'
@@ -117,18 +117,18 @@ all_data_filtered.columns = list(matchingColumns.keys())
 
 # Data cleaning
 # Replace zero temperatures with NaN
-all_data_filtered['TEMP'].replace(0, np.nan, inplace=True)
+all_data_filtered.loc[:, 'TEMP'] = all_data_filtered['TEMP'].replace(0, np.nan)
 all_data_filtered['TEMP'] = pd.to_numeric(all_data_filtered['TEMP'], errors='coerce')
 
 # Interpolate missing temperature values if appropriate
-all_data_filtered['TEMP'].interpolate(method='linear', inplace=True)
+all_data_filtered.loc[:, 'TEMP'] = all_data_filtered['TEMP'].interpolate(method='linear')
 
 # Drop rows with remaining missing values
 all_data_filtered.dropna(subset=['TEMP'], inplace=True)
 
 # Convert 'LoadPercent' to numeric
 all_data_filtered['LoadPercent'] = pd.to_numeric(all_data_filtered['LoadPercent'], errors='coerce')
-all_data_filtered['LoadPercent'].fillna(0, inplace=True)
+all_data_filtered.loc[:, 'LoadPercent'] = all_data_filtered['LoadPercent'].fillna(0)
 
 # Map 'NumThreadsLabel' to number of threads
 num_threads_mapping = {
@@ -235,7 +235,6 @@ else:
     y = regression_data['Proc Energy (Joules)']
 
     # Normalize features
-    from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
@@ -323,4 +322,3 @@ else:
     # --- Conclusion ---
 
     print("Analysis complete. Please review the plots and outputs for insights into the energy usage behavior with the temperature data.")
-
