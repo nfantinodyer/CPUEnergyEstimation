@@ -31,6 +31,10 @@ run_test() {
     thread_label="${num_threads}threads"
   fi
 
+  # Set environment variables for expect script
+  export LOAD_PERCENT="$load_percent"
+  export THREAD_LABEL="$thread_label"
+
   # Construct filenames
   output_filename="Linux${load_percent}Static${thread_label}.csv"
   pcm_output_file="$OUTPUT_DIR/$output_filename"
@@ -68,10 +72,10 @@ run_test() {
   # Wait a moment to ensure stress-ng has started
   sleep 2
 
-  # Start pcm data collection in a new xterm window
+  # Start pcm data collection using expect script in a new xterm window
   xterm -hold -e bash -c "
     echo 'Starting pcm data collection...';
-    sudo $PCM_DIR/pcm /csv $PCM_SAMPLING_INTERVAL $PCM_COUNT | tee '$pcm_output_file';
+    ./run_pcm_expect.sh;
     echo 'pcm data collection completed.';
     read -p 'Press Enter to close...';
   " &
