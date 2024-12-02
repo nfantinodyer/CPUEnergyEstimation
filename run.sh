@@ -11,11 +11,11 @@ fi
 
 # Export environment variables for GUI applications
 export DISPLAY=:0
-export XAUTHORITY=/home/yourusername/.Xauthority
+export XAUTHORITY=/home/rob/.Xauthority
 
 # Directories
-PCM_DIR="/home/yourusername/Desktop/pcm/build/bin"
-OUTPUT_DIR="/home/yourusername/Desktop/Data"
+PCM_DIR="Desktop/pcm/build/bin"
+OUTPUT_DIR="Desktop/Data"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -53,9 +53,9 @@ run_test() {
   rm -f "$pcm_output_file" "$temp_output_file"
 
   # Calculate sampling interval and count for pcm
-  PCM_SAMPLING_INTERVAL="0.05"  # Adjust as needed
+  PCM_SAMPLING_INTERVAL="1"  # Adjust as needed
   PCM_DURATION="60"  # seconds
-  PCM_COUNT=$(echo "$PCM_DURATION / $PCM_SAMPLING_INTERVAL" | bc)
+  PCM_COUNT="60"
 
   # Build stress-ng command
   if [ "$num_threads" -eq 8 ]; then
@@ -65,6 +65,14 @@ run_test() {
     # Specific number of threads
     stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   fi
+
+  # Start pcm data collection
+  xterm -hold -e bash -c "
+    echo 'Starting pcm data collection...';
+    sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2> "$pcm_error_log";
+    echo 'pcm data collection completed.';
+  "&
+  pcm_pid=$!
 
   # Start temperature logging in a new xterm window
   xterm -hold -e bash -c "
@@ -88,15 +96,6 @@ run_test() {
 
   temp_pid=$!
 
-  # Start pcm data collection in a new xterm window
-  xterm -hold -e bash -c "
-    echo 'Starting pcm data collection...';
-    sudo '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2> '$pcm_error_log';
-    echo 'pcm data collection completed.';
-    read -p 'Press Enter to close...';
-  " &
-
-  pcm_pid=$!
 
   # Start stress-ng in a new xterm window
   xterm -hold -e bash -c "
@@ -107,6 +106,8 @@ run_test() {
   " &
 
   stress_pid=$!
+
+
 
   # Wait for the duration of the test plus a buffer
   sleep $(($PCM_DURATION + 5))
