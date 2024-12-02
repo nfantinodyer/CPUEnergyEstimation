@@ -41,6 +41,7 @@ run_test() {
   output_filename="Linux${load_percent}Static${thread_label}.csv"
   pcm_output_file="$OUTPUT_DIR/$output_filename"
   temp_output_file="$OUTPUT_DIR/temp_${output_filename}"
+  pcm_error_log="$OUTPUT_DIR/pcm_errors.log"
 
   echo "Starting test: Threads=$num_threads, Load=$load_percent%, Output File=$output_filename"
 
@@ -61,37 +62,43 @@ run_test() {
     stress_cmd="stress-ng --cpu $num_threads --cpu-method matrixprod --cpu-load $load_percent --timeout ${PCM_DURATION}s"
   fi
 
-  # Start temperature logging in a detached screen session
-  screen -dmS temp_log bash -c "
-    SAMPLING_INTERVAL='$PCM_SAMPLING_INTERVAL'
-    TOTAL_DURATION='$PCM_DURATION'
-    COUNT=\$(echo \"\$TOTAL_DURATION / \$SAMPLING_INTERVAL\" | bc)
-    echo 'DateTime,TEMP' > '$temp_output_file'
+  # Start temperature logging in the background
+  {
+    # Temperature logging code
+    SAMPLING_INTERVAL="$PCM_SAMPLING_INTERVAL"
+    TOTAL_DURATION="$PCM_DURATION"
+    COUNT=$(echo "$TOTAL_DURATION / $SAMPLING_INTERVAL" | bc)
+
+    echo "DateTime,TEMP" > "$temp_output_file"
+
     for ((i=0; i<COUNT; i++)); do
-        DATE_TIME=\$(date '+%Y-%m-%d %H:%M:%S.%N %z')
-        TEMP=\$(sensors -u | grep 'temp1_input' | head -1 | awk '{print \$2}')
-        if [ -z \"\$TEMP\" ]; then
-            TEMP='NaN'
+        DATE_TIME=$(date +"%Y-%m-%d %H:%M:%S.%N %z")
+        TEMP=$(sensors -u | grep 'temp1_input' | head -1 | awk '{print $2}')
+        if [ -z "$TEMP" ]; then
+            TEMP="NaN"
         fi
-        echo \"\$DATE_TIME,\$TEMP\" >> '$temp_output_file'
-        sleep \"\$SAMPLING_INTERVAL\"
+        echo "$DATE_TIME,$TEMP" >> "$temp_output_file"
+        sleep "$SAMPLING_INTERVAL"
     done
-  "
+  } &
 
-  # Start pcm data collection in a detached screen session
-  screen -dmS pcm_log bash -c "
-    sudo '$PCM_DIR/pcm' /csv '$PCM_SAMPLING_INTERVAL' '$PCM_COUNT' > '$pcm_output_file' 2>'$OUTPUT_DIR/pcm_errors.log'
-  "
+  temp_pid=$!
 
-  # Start stress-ng in the foreground
-  eval "$stress_cmd"
+  # Start pcm data collection in the background using 'setsid' to detach from terminal
+  setsid sudo "$PCM_DIR/pcm" /csv "$PCM_SAMPLING_INTERVAL" "$PCM_COUNT" > "$pcm_output_file" 2>"$pcm_error_log" &
 
-  # Wait for the duration to ensure all processes have finished
+  pcm_pid=$!
+
+  # Start stress-ng in the background
+  setsid $stress_cmd &
+
+  stress_pid=$!
+
+  # Wait for the duration of the test
   sleep "$PCM_DURATION"
 
-  # Terminate screen sessions (just in case)
-  screen -S temp_log -X quit
-  screen -S pcm_log -X quit
+  # Optionally, kill any remaining processes
+  kill $temp_pid $pcm_pid $stress_pid 2>/dev/null
 
   echo "Completed test: Threads=$num_threads, Load=$load_percent%"
 }
