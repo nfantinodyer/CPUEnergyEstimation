@@ -22,11 +22,11 @@ collect_temp() {
     for ((i=0; i<=COUNT; i++)); do
         TEMP=$(cat /sys/class/hwmon/hwmon*/temp*_input | head -1)
         if [ -n "$TEMP" ]; then
-            TEMP=$(printf "%.3f" "$(echo "scale=3; $TEMP / 1000" | bc)")
+            TEMP=$(echo "$TEMP" | awk '{printf "%.3f", $1 / 1000}')
         else
             TEMP="NaN"
         fi
-        printf "%s\n" "$TEMP"
+        echo "$TEMP"
         sleep "$SAMPLING_INTERVAL"
     done
 }
