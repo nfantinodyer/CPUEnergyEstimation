@@ -84,7 +84,7 @@ print(all_data.columns.tolist())
 # Define columns of interest
 columnsOfInterest = [
     'DateTime', 'LoadPercent', 'NumThreadsLabel', 'SourceFile',
-    'Proc Energy (Joules)', 'FREQ', 'AFREQ', 'TEMP', 'C0res%', 'C1res%', 'C3res%',
+    'Proc Energy (Joules)', 'FREQ', 'AFREQ', 'Temperature', 'C0res%', 'C1res%', 'C3res%',
     'C6res%', 'C7res%', 'READ', 'WRITE'
 ]
 
@@ -95,8 +95,8 @@ def getMatchingColumns(columnsList, dataColumns):
         matches = [c for c in dataColumns if c.startswith(col)]
         if matches:
             # For 'TEMP', pick the exact match or the first match
-            if col == 'TEMP':
-                temp_matches = [c for c in matches if c == 'TEMP']
+            if col == 'Temperature':
+                temp_matches = [c for c in matches if c == 'Temperature']
                 matchingColumns[col] = temp_matches[0] if temp_matches else matches[0]
             else:
                 matchingColumns[col] = matches[0]
@@ -117,14 +117,14 @@ all_data_filtered.columns = list(matchingColumns.keys())
 
 # Data cleaning
 # Replace zero temperatures with NaN
-all_data_filtered.loc[:, 'TEMP'] = all_data_filtered['TEMP'].replace(0, np.nan)
-all_data_filtered['TEMP'] = pd.to_numeric(all_data_filtered['TEMP'], errors='coerce')
+all_data_filtered.loc[:, 'Temperature'] = all_data_filtered['Temperature'].replace(0, np.nan)
+all_data_filtered['Temperature'] = pd.to_numeric(all_data_filtered['Temperature'], errors='coerce')
 
 # Interpolate missing temperature values if appropriate
-all_data_filtered.loc[:, 'TEMP'] = all_data_filtered['TEMP'].interpolate(method='linear')
+all_data_filtered.loc[:, 'Temperature'] = all_data_filtered['Temperature'].interpolate(method='linear')
 
 # Drop rows with remaining missing values
-all_data_filtered.dropna(subset=['TEMP'], inplace=True)
+all_data_filtered.dropna(subset=['Temperature'], inplace=True)
 
 # Convert 'LoadPercent' to numeric
 all_data_filtered['LoadPercent'] = pd.to_numeric(all_data_filtered['LoadPercent'], errors='coerce')
@@ -183,7 +183,7 @@ else:
     # --- Investigate Anomalies ---
 
     # Plot additional metrics to check for anomalies
-    metrics_to_plot = ['FREQ', 'TEMP', 'CPU Utilization']
+    metrics_to_plot = ['FREQ', 'Temperature', 'CPU Utilization']
 
     for metric in metrics_to_plot:
         plt.figure(figsize=(10, 6))
@@ -204,7 +204,7 @@ else:
     # Check for thermal throttling by plotting CPU frequency and temperature
     plt.figure(figsize=(10, 6))
     sc = plt.scatter(
-        x=all_threads_data['TEMP'],
+        x=all_threads_data['Temperature'],
         y=all_threads_data['FREQ'],
         c=all_threads_data['LoadPercent'],
         cmap='viridis'
@@ -223,15 +223,15 @@ else:
 
     # Check for unusual values in temperature
     print("Temperature Data at High Loads (All Threads):")
-    print(high_load_data[['LoadPercent', 'TEMP']].describe())
+    print(high_load_data[['LoadPercent', 'Temperature']].describe())
 
     # --- Update Regression Analysis ---
 
     # Prepare data for regression
-    regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']].dropna()
+    regression_data = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'NumThreads', 'FREQ', 'Temperature', 'CPU Utilization']].dropna()
 
     # Define features and target variable
-    X = regression_data[['LoadPercent', 'NumThreads', 'FREQ', 'TEMP', 'CPU Utilization']]
+    X = regression_data[['LoadPercent', 'NumThreads', 'FREQ', 'Temperature', 'CPU Utilization']]
     y = regression_data['Proc Energy (Joules)']
 
     # Normalize features

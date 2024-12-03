@@ -20,7 +20,7 @@ collect_temp() {
     COUNT=$((TOTAL_DURATION / SAMPLING_INTERVAL))
 
     for ((i=0; i<=COUNT; i++)); do
-        TEMP=$(sensors -u | grep -E 'temp[1-9]_input' | head -1 | awk '{print $2}')
+        TEMP=$(sensors -u | grep -E 'temp[1-9]_input' | head -1 | awk '{printf "%.3f", $2}')
         if [ -z "$TEMP" ]; then
             TEMP="NaN"
         fi
