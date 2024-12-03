@@ -20,16 +20,19 @@ collect_temp() {
     COUNT=$((TOTAL_DURATION / SAMPLING_INTERVAL))
 
     for ((i=0; i<=COUNT; i++)); do
-        TEMP=$(cat /sys/class/hwmon/hwmon*/temp*_input | head -1)
-        if [ -n "$TEMP" ]; then
-            TEMP=$(echo "$TEMP" | awk '{printf "%.3f", $1 / 1000}')
-        else
+        # Use `sensors` to fetch the temperature
+        TEMP=$(sensors -u | grep -E 'temp[1-9]_input' | head -1 | awk '{print $2}')
+        if [ -z "$TEMP" ]; then
             TEMP="NaN"
+        else
+            # Format the temperature to three decimal places
+            TEMP=$(awk "BEGIN {printf \"%.3f\", $TEMP}")
         fi
         echo "$TEMP"
         sleep "$SAMPLING_INTERVAL"
     done
 }
+
 
 
 # Function to run a single experiment
