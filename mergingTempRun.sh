@@ -22,7 +22,7 @@ collect_temp() {
     for ((i=0; i<=COUNT; i++)); do
         TEMP=$(cat /sys/class/hwmon/hwmon*/temp*_input | head -1)
         if [ -n "$TEMP" ]; then
-            TEMP=$(awk "BEGIN {printf \"%.3f\", $TEMP / 1000}")
+            TEMP=$(printf "%.3f" "$(echo "scale=3; $TEMP / 1000" | bc)")
         else
             TEMP="NaN"
         fi
