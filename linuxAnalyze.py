@@ -119,11 +119,10 @@ all_data_filtered.columns = list(matchingColumns.keys())
 # Replace zero temperatures with NaN
 all_data_filtered.loc[:, 'Temperature'] = all_data_filtered['Temperature'].replace(0, np.nan)
 
-# Convert to numeric and scale temperature by 1000 (if needed)
-all_data_filtered['Temperature'] = pd.to_numeric(all_data_filtered['Temperature'], errors='coerce') / 1000.0
+all_data_filtered['Temperature'] = pd.to_numeric(all_data_filtered['Temperature'], errors='coerce')
 
 # Interpolate missing temperature values if appropriate
-all_data_filtered['Temperature'] = all_data_filtered['Temperature'].interpolate(method='linear')
+all_data_filtered.loc[:, 'Temperature'] = all_data_filtered['Temperature'].interpolate(method='linear')
 
 
 # Drop rows with remaining missing values
