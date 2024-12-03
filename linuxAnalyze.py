@@ -24,7 +24,7 @@ directories = {
 
 # Define load percentages
 all_loads = list(range(0, 100, 10))  # 0% to 90% in increments of 10%
-partial_loads = [0, 30, 60, 90]      # For 2, 4, 6 threads
+partial_loads = list(range(0, 100, 10))  # Expanded to 0% to 90% in increments of 10%
 
 # Function to create file paths
 def create_file_paths(directory, loads, suffix):
@@ -132,19 +132,19 @@ all_data_filtered.loc[:, 'LoadPercent'] = all_data_filtered['LoadPercent'].filln
 
 # Map 'NumThreadsLabel' to number of threads
 num_threads_mapping = {
-    'All Threads': 8,  # Adjust to match your system's max threads
+    'All Threads': 8,  # Adjust to match the system's max threads
     '2 Threads': 2,
     '4 Threads': 4,
     '6 Threads': 6
 }
 all_data_filtered['NumThreads'] = all_data_filtered['NumThreadsLabel'].map(num_threads_mapping)
 
-# Create 'CPU Utilization' from 'C0res%' if not present
-if 'CPU Utilization' not in all_data_filtered.columns and 'C0res%' in all_data_filtered.columns:
-    all_data_filtered['CPU Utilization'] = all_data_filtered['C0res%']
-    print("Created 'CPU Utilization' from 'C0res%'")
+# Rename 'C0res%' to 'CPU Utilization' directly
+if 'C0res%' in all_data_filtered.columns:
+    all_data_filtered.rename(columns={'C0res%': 'CPU Utilization'}, inplace=True)
+    print("Renamed 'C0res%' to 'CPU Utilization'")
 else:
-    print("'CPU Utilization' is present in data.")
+    print("'C0res%' column is missing from the data.")
 
 # Print first few rows of all_data_filtered
 print("First few rows of all_data_filtered:")
