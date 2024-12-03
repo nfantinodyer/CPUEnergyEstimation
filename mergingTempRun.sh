@@ -26,7 +26,7 @@ collect_temp() {
         else
             TEMP="NaN"
         fi
-        echo "$TEMP"
+        printf "%s\n" "$TEMP"
         sleep "$SAMPLING_INTERVAL"
     done
 }
