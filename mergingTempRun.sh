@@ -7,7 +7,7 @@ PCM_DIR="/home/rob/Desktop/pcm/build/bin"
 OUTPUT_DIR="/home/rob/Desktop/Data"
 
 SAMPLING_INTERVAL=1  # Same as PCM sampling interval
-TOTAL_DURATION=120    # 2 minutes
+TOTAL_DURATION=30    # 30 seconds
 
 # Ensure the msr module is loaded
 sudo modprobe msr
