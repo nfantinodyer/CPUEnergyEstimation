@@ -14,23 +14,23 @@ sudo modprobe msr
 
 # Function to collect temperature data and output to stdout
 collect_temp() {
-    # Output two header lines
     echo "Signal"
     echo "Temperature"
 
-    #SAMPLING_INTERVAL=1  # Same as PCM sampling interval
-    #TOTAL_DURATION=60    # 60 seconds
     COUNT=$((TOTAL_DURATION / SAMPLING_INTERVAL))
 
     for ((i=0; i<=COUNT; i++)); do
-        TEMP=$(sensors -u | grep -E 'temp[1-9]_input' | head -1 | awk '{printf "%.3f", $2}')
-        if [ -z "$TEMP" ]; then
+        TEMP=$(cat /sys/class/hwmon/hwmon*/temp*_input | head -1)
+        if [ -n "$TEMP" ]; then
+            TEMP=$(awk "BEGIN {printf \"%.3f\", $TEMP / 1000}")
+        else
             TEMP="NaN"
         fi
         echo "$TEMP"
         sleep "$SAMPLING_INTERVAL"
     done
 }
+
 
 # Function to run a single experiment
 run_experiment() {
