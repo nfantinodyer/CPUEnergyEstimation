@@ -1,31 +1,87 @@
-# CPUEnergyEstimation
-Research Project for CSEN 283
-![power](Images/Power.png)
+# CPU Performance Analysis: Addressing Inaccuracies in Monitoring Tools
+## Overview
+  This project investigates inaccuracies in CPU performance and energy consumption metrics collected using various tools, including Intel PCM, Linux sensors, and stress-testing utilities like stress-ng and HeavyLoad. The analysis compares results across Windows and Linux environments, identifying tool limitations, exploring mitigation strategies, and evaluating energy efficiency.
 
-rob@am-4ccc6af54551:~$ sensors
-nouveau-pci-0100
-Adapter: PCI adapter
-fan1:         816 RPM
-temp1:        +32.0°C  (high = +95.0°C, hyst =  +3.0°C)
-                       (crit = +105.0°C, hyst =  +5.0°C)
-                       (emerg = +135.0°C, hyst =  +5.0°C)
+## Features
+- Automated data collection for CPU performance metrics and temperature readings for Linux.
+- Merged, cleaned, and preprocessed datasets ready for in-depth analysis.
+- Visualizations, including scatter plots and heatmaps, to highlight trends and anomalies.
+- Statistical analysis comparing Windows and Linux systems under varying loads and thread configurations.
 
-acpitz-acpi-0
-Adapter: ACPI interface
-temp1:        +27.8°C  (crit = +119.0°C)
-temp2:        +29.8°C  (crit = +119.0°C)
+## Setup and Installation
+Prerequisites
+  - Linux or Windows 10.
 
-coretemp-isa-0000
-Adapter: ISA adapter
-Package id 0:  +41.0°C  (high = +80.0°C, crit = +100.0°C)
-Core 0:        +42.0°C  (high = +80.0°C, crit = +100.0°C)
-Core 1:        +41.0°C  (high = +80.0°C, crit = +100.0°C)
-Core 2:        +42.0°C  (high = +80.0°C, crit = +100.0°C)
-Core 3:        +41.0°C  (high = +80.0°C, crit = +100.0°C)
+Install and follow directions from:
+https://github.com/intel/pcm
 
-nvme-pci-0500
-Adapter: PCI adapter
-Composite:    +30.9°C  (low  = -273.1°C, high = +81.8°C)
-                       (crit = +84.8°C)
-Sensor 1:     +30.9°C  (low  = -273.1°C, high = +65261.8°C)
-Sensor 2:     +35.9°C  (low  = -273.1°C, high = +65261.8°C)
+### For Windows Intel Monitor I followed these steps
+#### Installing PCM
+https://github.com/intel/pcm
+
+>git clone --recursive https://github.com/intel/pcm
+>cd pcm
+>git submodule update --init --recursive
+>mkdir build
+>cd build
+
+Install cmake: https://cmake.org/download/
+
+>cmake ..
+>cmake --build .
+>cmake --build . --parallel
+>cmake --build . --config Release
+
+https://github.com/intel/pcm/blob/master/doc/WINDOWS_HOWTO.md
+
+#### To run PCM.exe
+Disable Secure Boot first in BIOS
+bcdedit /set testsigning on
+
+Only allow signed:
+bcdedit /set testsigning off
+
+#### For perfmon:
+in the pcm dir
+>cmake --build build --target pcm-lib --config Release
+>This will generate `PCM-Service.exe` in the same directory as other build outputs (e.g., `C:\Users\2013r\pcm\build\bin\Release`
+
+Copy the following files into a `PCM` sub-directory in `C:\Program Files`:
+- `PCM-Service.exe`
+- `PCM-Service.exe.config`
+- `pcm-lib.dll`
+
+> cd "C:\Program Files\PCM"
+> "PCM-Service.exe" -Install
+
+#### Starting perfmon 
+> cd "C:\Program Files\PCM"
+> net start pcmservice
+- Open **Performance Monitor** (Perfmon) by typing `perfmon` in the Start menu and pressing Enter.
+- In Perfmon, add new counters by clicking the green "+" icon.
+- You should see new counters starting with `PCM*`, which are provided by the `PCM-Service.exe`.
+
+Run the dataOut.ps1 file to get data and put it into a csv. It runs for 5 seconds and gets data very 250 milliseconds.
+
+#### Just straight output
+Turns out you can just do
+>pcm.exe /csv 1 > output.csv
+
+This will output to the csv every 1 second. You can also do every .1 seconds and that's what i have it on currently:
+>pcm.exe /csv .1 > output.csv
+
+### For Linux I followed these steps
+I'll be using Desbian edu 12.8.0 amd 64 netinst since it's primarily for Windows Intel CPUs. It'll be loaded onto the same drive as windows on the main testing PC so I can test on the same CPU. 
+
+Follow the steps and before running 
+>bin/pcm
+
+Be sure to run
+>sudo modprobe msr
+>sudo bin/pcm
+
+This is assuming you are in the build directory.
+
+Then to output to a file do:
+> cd bin
+> sudo ./pcm /csv .025 > ~/Desktop/LinuxOutput.csv 2>/dev/null
