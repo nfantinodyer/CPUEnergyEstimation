@@ -12,10 +12,6 @@
 Prerequisites
   - Linux or Windows 10.
 
-#### Be sure to install
-sudo apt-get update
-sudo apt-get install stress-ng gcc g++ libacl1-dev libaio-dev libapparmor-dev libatomic1 libattr1-dev libbsd-dev libcap-dev libeigen3-dev libgbm-dev libcrypt-dev libglvnd-dev libipsec-mb-dev libjpeg-dev libjudy-dev libkeyutils-dev libkmod-dev libmd-dev libmpfr-dev libsctp-dev libxxhash-dev zlib1g-dev cmake
-
 Install and follow directions from:
 https://github.com/intel/pcm
 
@@ -76,6 +72,10 @@ This will output to the csv every 1 second. You can also do every .1 seconds and
 
 ### For Linux I followed these steps
 I'll be using Desbian edu 12.8.0 amd 64 netinst since it's primarily for Windows Intel CPUs. It'll be loaded onto the same drive as windows on the main testing PC so I can test on the same CPU. 
+
+#### Be sure to install
+sudo apt-get update
+sudo apt-get install stress-ng gcc g++ libacl1-dev libaio-dev libapparmor-dev libatomic1 libattr1-dev libbsd-dev libcap-dev libeigen3-dev libgbm-dev libcrypt-dev libglvnd-dev libipsec-mb-dev libjpeg-dev libjudy-dev libkeyutils-dev libkmod-dev libmd-dev libmpfr-dev libsctp-dev libxxhash-dev zlib1g-dev cmake
 
 Follow the steps and before running 
 >bin/pcm
