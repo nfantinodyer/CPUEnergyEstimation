@@ -84,6 +84,7 @@ If you want to run it yourself manually you can do:
 
 But if you want to have it automatically run expeiments you can run my mergingTempRun.sh file. It will output everything into the Data folder on your desktop:
 
+You will need to edit the file to tell it where you installed pcm as well as where you need the output to go.
 chmod +x mergingTempRun.sh
 
 sudo ./mergingTempRun.sh
