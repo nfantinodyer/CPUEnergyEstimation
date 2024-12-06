@@ -1,5 +1,5 @@
 #CSEN283
-I'll be using Desbian edu 12.8.0 amd 64 netinst since it's primarily for Windows Intel CPUs. It'll be loaded onto the same drive as windows on the main testing PC so we can test on the same CPU. Sign in is rob and 5809
+I'll be using Desbian edu 12.8.0 amd 64 netinst since it's primarily for Windows Intel CPUs. It'll be loaded onto the same drive as windows on the main testing PC so we can test on the same CPU.
 
 Follow the steps and before running 
 >bin/pcm
