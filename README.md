@@ -11,6 +11,8 @@
 ## Setup and Installation
 Prerequisites
   - Linux or Windows 10.
+  - It depends on the age of the motherboard, but if your motherboard supports secure boot, you will have to disable it for both windows and linux pcm to work.
+
 
 Install and follow directions from:
 https://github.com/intel/pcm
