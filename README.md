@@ -85,3 +85,7 @@ This is assuming you are in the build directory.
 Then to output to a file do:
 > cd bin
 > sudo ./pcm /csv .025 > ~/Desktop/LinuxOutput.csv 2>/dev/null
+
+
+## Some Notes
+All of my notes throughout this project are under the Notes directory in that same repository. Following the steps on the readme you can install pcm and run it on your pc as well. Initially I used Influx to try to push my data to which is what got me started with reformatting the csv files into the format influx needed, but I ended up still using that CorrectData script throughout because I liked the consistency. For Linux I was able to automate the data collection using the mergingTempRun.sh since the amount of experiments I was running was tedious to run by hand. However for windows I wasn't given the opportunity to edit the amount of load on the cpu as well as some other things that I could do on linux so the data collection was minimal in comparison.
