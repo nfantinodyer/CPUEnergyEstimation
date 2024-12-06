@@ -77,19 +77,12 @@ I'll be using Desbian edu 12.8.0 amd 64 netinst since it's primarily for Windows
 sudo apt-get update
 sudo apt-get install stress-ng gcc g++ libacl1-dev libaio-dev libapparmor-dev libatomic1 libattr1-dev libbsd-dev libcap-dev libeigen3-dev libgbm-dev libcrypt-dev libglvnd-dev libipsec-mb-dev libjpeg-dev libjudy-dev libkeyutils-dev libkmod-dev libmd-dev libmpfr-dev libsctp-dev libxxhash-dev zlib1g-dev cmake
 
-Follow the steps and before running 
->bin/pcm
-
-Be sure to run
+Go to the bin directory in the build one.
+If you want to run it yourself manually you can do:
 >sudo modprobe msr
->sudo bin/pcm
-
-This is assuming you are in the build directory.
-
-Then to output to a file do:
-> cd bin
 > sudo ./pcm /csv .025 > ~/Desktop/LinuxOutput.csv 2>/dev/null
 
+But if you want to have it automatically run expeiments you can run my mergingTempRun.sh file. It will output everything into the Data folder on your desktop.
 
 ## Some Notes
 All of my notes throughout this project are under the Notes directory in that same repository. Following the steps on the readme you can install pcm and run it on your pc as well. Initially I used Influx to try to push my data to which is what got me started with reformatting the csv files into the format influx needed, but I ended up still using that CorrectData script throughout because I liked the consistency. For Linux I was able to automate the data collection using the mergingTempRun.sh since the amount of experiments I was running was tedious to run by hand. However for windows I wasn't given the opportunity to edit the amount of load on the cpu as well as some other things that I could do on linux so the data collection was minimal in comparison.
