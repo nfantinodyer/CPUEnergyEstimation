@@ -83,6 +83,7 @@ If you want to run it yourself manually you can do:
 > sudo ./pcm /csv .025 > ~/Desktop/LinuxOutput.csv 2>/dev/null
 
 But if you want to have it automatically run expeiments you can run my mergingTempRun.sh file. It will output everything into the Data folder on your desktop:
+
 chmod +x mergingTempRun.sh
 sudo ./mergingTempRun.sh
 
