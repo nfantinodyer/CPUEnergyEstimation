@@ -8,10 +8,6 @@ You can also use the CLI and write using cmd or powershell.
 
 >C:\Program Files\InfluxData
 
-Login:
-NicholasFD
-Spot502070
-
 Org:
 CSEN283
 
