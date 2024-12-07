@@ -209,3 +209,72 @@ plt.show()
 sns.scatterplot(data=regression_data, x='FREQ', y='Proc Energy (Joules)', hue='CPU')
 plt.title('Energy Consumption vs Frequency by CPU')
 plt.show()
+
+def generate_heatmap(data, title):
+    correlation_data = data[['LoadPercent', 'Proc Energy (Joules)', 'FREQ', 'AFREQ', 'Temperature', 
+                             'CPU Utilization', 'C1res%', 'C3res%',
+                             'C6res%', 'C7res%', 'READ', 'WRITE']].corr()
+    print(f"\nCorrelation Data for {title}:")
+    print(correlation_data)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_data, annot=True, cmap="coolwarm", fmt=".2f")
+    plt.title(title)
+    plt.show()
+
+# Filter data for each CPU and generate heatmaps
+data_i7_7700K = all_data_filtered[all_data_filtered['CPU'] == 'i77700K']
+data_i7_13700K = all_data_filtered[all_data_filtered['CPU'] == 'i713700K']
+
+generate_heatmap(data_i7_7700K, "i7-7700K Heatmap")
+generate_heatmap(data_i7_13700K, "i7-13700K Heatmap")
+
+print("\nKey Metrics for i7-7700K:")
+print(data_i7_7700K.describe())
+print("\nKey Metrics for i7-13700K:")
+print(data_i7_13700K.describe())
+
+
+print("\nSummary of Key Metrics:")
+print(all_data_filtered[['CPU', 'LoadPercent', 'Proc Energy (Joules)', 'Temperature', 'CPU Utilization']].describe())
+print("\nAggregated Metrics by CPU and Load Percentage:")
+print(cpu_comparison)
+print("\nCorrelation Matrix of Key Metrics:")
+correlation_matrix = all_data_filtered[['Proc Energy (Joules)', 'LoadPercent', 'Temperature', 'CPU Utilization']].corr()
+print(correlation_matrix)
+print("\nOutlier Detection - Rows with Extreme Energy Consumption:")
+outliers = all_data_filtered[all_data_filtered['Proc Energy (Joules)'] > all_data_filtered['Proc Energy (Joules)'].quantile(0.99)]
+print(outliers)
+print("\nThread-Level Energy and Temperature Averages:")
+thread_averages = all_data_filtered.groupby(['NumThreadsLabel', 'LoadPercent']).agg({
+    'Proc Energy (Joules)': 'mean',
+    'Temperature': 'mean',
+    'CPU Utilization': 'mean'
+}).reset_index()
+print(thread_averages)
+
+plt.figure(figsize=(12, 6))
+sns.lineplot(data=all_data_filtered, x='LoadPercent', y='Proc Energy (Joules)', hue='NumThreadsLabel', style='CPU', marker='o')
+plt.title('Energy Consumption by Thread Count')
+plt.xlabel('Load Percentage (%)')
+plt.ylabel('Energy Consumption (Joules)')
+plt.legend(title='Thread Count and CPU')
+plt.grid(True)
+plt.show()
+
+plt.figure(figsize=(12, 6))
+sns.lineplot(data=all_data_filtered, x='LoadPercent', y='Temperature', hue='NumThreadsLabel', style='CPU', marker='o')
+plt.title('Temperature by Thread Count')
+plt.xlabel('Load Percentage (%)')
+plt.ylabel('Temperature (°C)')
+plt.legend(title='Thread Count and CPU')
+plt.grid(True)
+plt.show()
+
+plt.figure(figsize=(12, 6))
+sns.lineplot(data=all_data_filtered, x='LoadPercent', y='CPU Utilization', hue='NumThreadsLabel', style='CPU', marker='o')
+plt.title('CPU Utilization by Thread Count')
+plt.xlabel('Load Percentage (%)')
+plt.ylabel('CPU Utilization (%)')
+plt.legend(title='Thread Count and CPU')
+plt.grid(True)
+plt.show()
