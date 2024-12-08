@@ -50,14 +50,10 @@ Run the dataOut.ps1 file to get data and put it into a csv. It runs for 5 second
 
 
 ### Just straight output
-
-^7aaa98
-
 Turns out you can just do
 >pcm.exe /csv 1 > output.csv
 
 This will output to the csv every 1 second. You can also do every .1 seconds and that's what i have it on currently:
 >pcm.exe /csv .1 > output.csv
 
-^bf74da
 
