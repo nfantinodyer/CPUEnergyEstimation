@@ -38,10 +38,12 @@ https://github.com/intel/pcm/blob/master/doc/WINDOWS_HOWTO.md
 
 #### To run PCM.exe
 Disable Secure Boot first in BIOS
-bcdedit /set testsigning on
+
+>bcdedit /set testsigning on
 
 Only allow signed:
-bcdedit /set testsigning off
+
+>bcdedit /set testsigning off
 
 #### For perfmon:
 in the pcm dir
