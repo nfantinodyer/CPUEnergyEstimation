@@ -10,7 +10,7 @@ You can also use the CLI and write using cmd or powershell.
 
 Login:
 NicholasFD
-Spot502070
+
 
 Org:
 CSEN283
